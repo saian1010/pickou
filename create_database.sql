@@ -3,19 +3,22 @@ create database pickou;
 -- users
 CREATE TABLE users (
     user_id BIGINT NOT NULL AUTO_INCREMENT,
-    username VARCHAR(20) NOT NULL,
+    username VARCHAR(20) NOT NULL Default "",
     password_hash CHAR(60) BINARY NOT NULL,
-    email VARCHAR(320) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
+    email VARCHAR(320) NOT NULL Default "",
+    phone VARCHAR(50) NOT NULL Default "",
+    dob_year int(10) NOT NULL Default 0,
+    dob_month int(10) NOT NULL Default 0,
     first_name VARCHAR(50) NOT NULL Default 'N/A',
     last_name VARCHAR(50) NOT NULL Default 'N/A',
     nick_name VARCHAR(50) NOT NULL Default 'N/A',
     gender int(2) NOT NULL Default 0 comment '性别，0未知，1男，2女，3无性别',
-    nationality VARCHAR(20) NOT NULL comment '国籍',
-    profile_image VARCHAR(255),
-    role ENUM('visitor', 'helper', 'admin') NOT NULL comment '默认visitor',
+    nationality VARCHAR(20) NOT NULL Default "" comment '国籍',
+    profile_image VARCHAR(255) NOT NULL Default '',
+    role ENUM('visitor', 'helper', 'admin') NOT NULL Default 'visitor' comment '默认visitor',
     authenticate int(2) NOT NULL Default 0 comment '0未认证，1已认证',
-    status ENUM('active', 'inactive') NOT NULL,
+    status ENUM('active', 'inactive') NOT NULL Default 'active',
+    created_at TIMESTAMP NOT NULL Default CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id)
 );
 

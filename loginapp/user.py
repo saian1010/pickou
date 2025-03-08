@@ -93,8 +93,10 @@ def login():
                 return render_template('login.html', 
                                        username=username,
                                        username_invalid=True)
-
-    return render_template('login.html')
+            
+    signup_successful = request.args.get('signup_successful', 'false')
+    print(signup_successful)
+    return render_template('login.html', signup_successful=signup_successful)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -102,49 +104,47 @@ def signup():
     if request.method == 'POST':
         # Get form data
         username = request.form.get('username')
-        email = request.form.get('email')
+        # email = request.form.get('email')
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
-        location = request.form.get('location')
+        dob_month = request.form.get('dob-month')
+        dob_year = request.form.get('dob-year')
+        gender = request.form.get('gender')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
         # Save form data for error display
         form_data = {
             'username': username,
-            'email': email,
+            'dob-month': dob_month,
+            'dob-year': dob_year,
+            'gender': gender,
             'first_name': first_name,
-            'last_name': last_name,
-            'location': location
+            'last_name': last_name
         }
-        
+        print(form_data)
         # Validate first name length
-        if len(first_name) < 2 or len(first_name) > 50:
-            return render_template('signup.html',
-                                 first_name_error='First name must be between 2 and 50 characters',
-                                 **form_data)
-        if len(last_name) < 2 or len(last_name) > 50:
-            return render_template('signup.html',
-                                 last_name_error='Last name must be between 2 and 50 characters',
-                                 **form_data)
+        # if len(first_name) < 2 or len(first_name) > 50:
+        #     return render_template('signup.html',
+        #                          first_name_error='First name must be between 2 and 50 characters',
+        #                          **form_data)
+        # if len(last_name) < 2 or len(last_name) > 50:
+        #     return render_template('signup.html',
+        #                          last_name_error='Last name must be between 2 and 50 characters',
+        #                          **form_data)
 
-        # Email validation
-        email_pattern = r'[a-zA-Z0-9][a-zA-Z0-9-_.]{1,}@[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*\.[a-zA-Z]{2,}'
-        if not re.match(email_pattern, email):
-            return render_template('signup.html',
-                                 confirm_password_error='Invalid email format',
-                                 **form_data)
+        # # Email validation
+        # email_pattern = r'[a-zA-Z0-9][a-zA-Z0-9-_.]{1,}@[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*\.[a-zA-Z]{2,}'
+        # if not re.match(email_pattern, email):
+        #     return render_template('signup.html',
+        #                          confirm_password_error='Invalid email format',
+        #                          **form_data)
 
-        # Validate email length
-        if len(email) > 100:
-            return render_template('signup.html',
-                                 confirm_password_error='Email is too long (maximum 100 characters)',
-                                 **form_data)
-        
-        if len(location) > 50:
-            return render_template('signup.html',
-                                 confirm_password_error='Location is too long (maximum 50 characters)',
-                                 **form_data)
+        # # Validate email length
+        # if len(email) > 100:
+        #     return render_template('signup.html',
+        #                          confirm_password_error='Email is too long (maximum 100 characters)',
+        #                          **form_data)
         
         # Validate password match
         if password != confirm_password:
@@ -168,20 +168,21 @@ def signup():
                                      username_error='Username already exists',
                                      **form_data)
             
-            # Check if email already exists
-            cursor.execute('SELECT 1 FROM users WHERE email = %s', (email,))
-            if cursor.fetchone():
-                return render_template('signup.html',
-                                     email_error='Email already exists',
-                                     **form_data)
+            # # Check if email already exists
+            # cursor.execute('SELECT 1 FROM users WHERE email = %s', (email,))
+            # if cursor.fetchone():
+            #     return render_template('signup.html',
+            #                          email_error='Email already exists',
+            #                          **form_data)
             
             # Create new user
             cursor.execute(
-                'INSERT INTO users (username, email, first_name, last_name, location, password_hash, role) VALUES (%s, %s, %s, %s, %s, %s, %s)',
-                (username, email, first_name, last_name, location, flask_bcrypt.generate_password_hash(password), 'visitor')
+                'INSERT INTO users (username, dob_month, dob_year, gender, first_name, last_name, password_hash) VALUES (%s, %s, %s, %s, %s, %s, %s)',
+                (username, dob_month, dob_year, gender , first_name, last_name, flask_bcrypt.generate_password_hash(password))
             )
             db.get_db().commit()
-            return render_template('signup.html', signup_successful=True)
+            return redirect(url_for('login', signup_successful=True))
+            #return render_template('login.html', signup_successful=True)
             
         except Exception as e:
             print(e)
