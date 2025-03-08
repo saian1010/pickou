@@ -1,0 +1,295 @@
+{% extends "userbase.html" %}
+{% block title %}Manage Users{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="h3 mb-3">User Management</h1>
+    
+    <!-- Search Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <!-- <label for="username" class="form-label">Username</label> -->
+                    <input type="text" 
+                           class="form-control" 
+                           id="username" 
+                           name="username" 
+                           placeholder="Search by username"
+                           value="{{ request.args.get('username', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <!-- <label for="first_name" class="form-label">First Name</label> -->
+                    <input type="text" 
+                           class="form-control" 
+                           id="first_name" 
+                           name="first_name" 
+                           placeholder="Search by first name"
+                           value="{{ request.args.get('first_name', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <!-- <label for="last_name" class="form-label">Last Name</label> -->
+                    <input type="text" 
+                           class="form-control" 
+                           id="last_name" 
+                           name="last_name" 
+                           placeholder="Search by last name"
+                           value="{{ request.args.get('last_name', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <!-- <label for="role" class="form-label">Role</label> -->
+                    <select class="form-select" id="role" name="role">
+                        <option value="">All Roles</option>
+                        <option value="admin" {% if request.args.get('role') == 'admin' %}selected{% endif %}>Admin</option>
+                        <option value="helper" {% if request.args.get('role') == 'helper' %}selected{% endif %}>Helper</option>
+                        <option value="visitor" {% if request.args.get('role') == 'visitor' %}selected{% endif %}>Visitor</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Search</button>
+                    <a href="{{ url_for('manage_users') }}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="d-none d-md-block shadow">
+        <div class="card">
+            <span class="card-header">Total users: {{ total }}</span>
+        </div>
+        <div class="table-responsive mb-3">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.first_name }}</td>
+                        <td>{{ user.last_name }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'primary' if user.role == 'admin' else 'info' if user.role == 'helper' else 'warning' }}">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if user.status == 'active' else 'danger' }}">
+                                {{ user.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.username != session.get('username') %}
+                            <div class="d-flex gap-2">
+                                {% if user.role == 'visitor' %}
+                                    <button class="btn btn-sm btn-outline-info px-3" 
+                                            onclick="updateUserRole('{{ user.username }}', 'helper')">
+                                        Promote to Helper
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary px-3" 
+                                            onclick="updateUserRole('{{ user.username }}', 'admin')">
+                                        Promote to Admin
+                                    </button>
+                                {% elif user.role == 'helper' %}
+                                    <button class="btn btn-sm btn-outline-warning px-3" 
+                                            onclick="updateUserRole('{{ user.username }}', 'visitor')">
+                                        Demote to Visitor
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary px-3" 
+                                            onclick="updateUserRole('{{ user.username }}', 'admin')">
+                                        Promote to Admin
+                                    </button>
+                                {% elif user.role == 'admin' %}
+                                    <button class="btn btn-sm btn-outline-info px-3" 
+                                            onclick="updateUserRole('{{ user.username }}', 'helper')">
+                                        Demote to Helper
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning px-3" 
+                                            onclick="updateUserRole('{{ user.username }}', 'visitor')">
+                                        Demote to Visitor
+                                    </button>
+                                {% endif %}
+                                <button class="btn btn-sm btn-outline-danger px-3" 
+                                        onclick="toggleUserStatus('{{ user.username }}')">
+                                    {{ 'Deactivate' if user.status == 'active' else 'Activate' }}
+                                </button>
+                                <a href="{{ url_for('view_user', user_id=user.user_id) }}" class="btn btn-outline-secondary btn-sm">View</a>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>        
+    </div>
+
+
+    <!-- 移动端卡片视图 -->
+    <div class="d-md-none">
+        {% for user in users %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="card-title mb-0">{{ user.username }}</h6>
+                    <span class="badge rounded-pill bg-{{ 'primary' if user.role == 'admin' else 'info' if user.role == 'helper' else 'warning' }}">
+                        {{ user.role }}
+                    </span>
+                </div>
+                <div class="small text-muted mb-2">{{ user.email }}</div>
+                <div class="small mb-2">
+                    {{ user.first_name }} {{ user.last_name }}
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge rounded-pill bg-{{ 'success' if user.status == 'active' else 'danger' }}">
+                        {{ user.status|title }}
+                    </span>
+                </div>
+                {% if user.username != session.get('username') %}
+                <div class="d-flex flex-column gap-2">
+                    {% if user.role == 'visitor' %}
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-info w-100" 
+                                        onclick="updateUserRole('{{ user.username }}', 'helper')">
+                                    Promote to Helper
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-primary w-100" 
+                                        onclick="updateUserRole('{{ user.username }}', 'admin')">
+                                    Promote to Admin
+                                </button>
+                            </div>
+                        </div>
+                    {% elif user.role == 'helper' %}
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-warning w-100" 
+                                        onclick="updateUserRole('{{ user.username }}', 'visitor')">
+                                    Demote to Visitor
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-primary w-100" 
+                                        onclick="updateUserRole('{{ user.username }}', 'admin')">
+                                    Promote to Admin
+                                </button>
+                            </div>
+                        </div>
+                    {% elif user.role == 'admin' %}
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-info w-100" 
+                                        onclick="updateUserRole('{{ user.username }}', 'helper')">
+                                    Demote to Helper
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-sm btn-outline-warning w-100" 
+                                        onclick="updateUserRole('{{ user.username }}', 'visitor')">
+                                    Demote to Visitor
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button class="btn btn-sm btn-outline-danger w-100" 
+                                    onclick="toggleUserStatus('{{ user.username }}')">
+                                {{ 'Deactivate' if user.status == 'active' else 'Activate' }}
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <a href="{{ url_for('view_user', user_id=user.user_id) }}" class="btn btn-outline-secondary btn-sm w-100">View</a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {{ 'disabled' if page == 1 }}">
+                <a class="page-link" href="{{ url_for('manage_users', page=page-1, username=request.args.get('username', ''), first_name=request.args.get('first_name', ''), last_name=request.args.get('last_name', ''), role=request.args.get('role', '')) }}" tabindex="-1">Previous</a>
+            </li>
+            {% for p in range(1, total_pages + 1) %}
+            <li class="page-item {{ 'active' if p == page }}">
+                <a class="page-link" href="{{ url_for('manage_users', page=p, username=request.args.get('username', ''), first_name=request.args.get('first_name', ''), last_name=request.args.get('last_name', ''), role=request.args.get('role', '')) }}">{{ p }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if page == total_pages }}">
+                <a class="page-link" href="{{ url_for('manage_users', page=page+1, username=request.args.get('username', ''), first_name=request.args.get('first_name', ''), last_name=request.args.get('last_name', ''), role=request.args.get('role', '')) }}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+    <div class="text-center mt-4 mb-4">
+        <p class="text-muted small mb-0">
+          Developed by Jialin Liu | Student ID: 1161342
+        </p>
+    </div>
+</div>
+
+<!-- JavaScript for AJAX calls -->
+<script>
+function updateUserRole(username, newRole) {
+    if (confirm(`Are you sure you want to change ${username}'s role to ${newRole}?`)) {
+        fetch('{{ url_for("update_user_role") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                role: newRole
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || 'Failed to update user role');
+            }
+        });
+    }
+}
+
+function toggleUserStatus(username) {
+    if (confirm(`Are you sure you want to toggle ${username}'s status?`)) {
+        fetch('{{ url_for("toggle_user_status") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || 'Failed to update user status');
+            }
+        });
+    }
+}
+</script>
+{% endblock %} 

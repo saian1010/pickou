@@ -1,0 +1,94 @@
+{% extends "userbase.html" %}
+{% set active_page = 'issues' %}
+{% block title %}Create New Issue{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Create New Issue</h2>
+    
+    <!-- Flash Messages - Display system notifications -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Issue Creation Form -->
+    <form method="POST">
+        <!-- Summary Field - Brief description of the issue -->
+        <div class="form-group mb-3">
+            <label for="summary">Summary</label>
+            <input type="text" 
+                   class="form-control" 
+                   id="summary" 
+                   name="summary" 
+                   required 
+                   maxlength="255"
+                   pattern=".{3,255}"
+                   title="Summary must be between 3 and 255 characters">
+            <div class="form-text">
+                <span id="summary-length">0</span>/255 characters (minimum 3)
+            </div>
+        </div>
+        
+        <!-- Description Field - Detailed explanation of the issue -->
+        <div class="form-group mb-3">
+            <label for="description">Description</label>
+            <textarea class="form-control" 
+                      id="description" 
+                      name="description" 
+                      rows="5" 
+                      required
+                      minlength="10"
+                      maxlength="5000"></textarea>
+            <div class="form-text">
+                <span id="description-length">0</span>/5000 characters (minimum 10)
+            </div>
+        </div>
+        
+        <!-- Form Actions -->
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Submit Issue</button>
+            <a href="{{ url_for('list_issues') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </form>
+
+    <!-- Footer Information -->
+    <div class="text-center mt-4 mb-4">
+        <p class="text-muted small mb-0">
+          Developed by Jialin Liu | Student ID: 1161342
+        </p>
+    </div>
+</div>
+
+<!-- Real-time Character Count Scripts -->
+<script>
+// Summary field character counter
+document.getElementById('summary').addEventListener('input', function() {
+    var length = this.value.length;
+    document.getElementById('summary-length').textContent = length;
+    
+    // Add visual feedback for invalid input
+    if (length > 255) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+
+// Description field character counter
+document.getElementById('description').addEventListener('input', function() {
+    var length = this.value.length;
+    document.getElementById('description-length').textContent = length;
+    
+    // Add visual feedback for invalid input
+    if (length < 10 || length > 5000) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+</script>
+{% endblock %} 

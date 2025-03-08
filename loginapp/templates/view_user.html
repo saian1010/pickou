@@ -1,0 +1,171 @@
+{% extends "userbase.html" %}
+{% block title %}User Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Page header: Back button -->
+    <div class="mb-4">
+        <a href="{{ url_for('manage_users') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to User List
+        </a>
+    </div>
+
+    {% if user %}
+        <!-- User Card -->
+        <div class="card border-0 shadow mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <!-- User Profile Image -->
+                    <div class="col-md-3 text-center mb-4 mb-md-0">
+                        <img src="{{ user.profile_image }}" 
+                             class="rounded-circle img-thumbnail object-fit-cover border border-2" 
+                             alt="Profile picture" 
+                             width="150" 
+                             height="150">
+                    </div>
+                    
+                    <!-- User Details -->
+                    <div class="col-md-9">
+                        <h2 class="h4 mb-3">{{ user.first_name }} {{ user.last_name }}</h2>
+                        
+                        <div class="mb-3 d-flex gap-2">
+                            <span class="badge bg-{{ 'primary' if user.role == 'admin' else 'info' if user.role == 'helper' else 'warning' }}">
+                                {{ user.role }}
+                            </span>
+                            <span class="badge bg-{{ 'success' if user.status == 'active' else 'danger' }}">
+                                {{ user.status|title }}
+                            </span>
+                        </div>
+                        
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <th scope="row">Username</th>
+                                    <td>{{ user.username }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Email</th>
+                                    <td>{{ user.email }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Location</th>
+                                    <td>{{ user.location if user.location else 'N/A' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <!-- Action Buttons (for admins only) -->
+                        {% if session.get('role') == 'admin' and user.username != session.get('username') %}
+                            <div class="mt-4">
+                                <h5 class="h6 mb-3">Management Actions</h5>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% if user.role == 'visitor' %}
+                                        <button class="btn btn-sm btn-outline-info px-3" 
+                                                onclick="updateUserRole('{{ user.username }}', 'helper')">
+                                            Promote to Helper
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary px-3" 
+                                                onclick="updateUserRole('{{ user.username }}', 'admin')">
+                                            Promote to Admin
+                                        </button>
+                                    {% elif user.role == 'helper' %}
+                                        <button class="btn btn-sm btn-outline-warning px-3" 
+                                                onclick="updateUserRole('{{ user.username }}', 'visitor')">
+                                            Demote to Visitor
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary px-3" 
+                                                onclick="updateUserRole('{{ user.username }}', 'admin')">
+                                            Promote to Admin
+                                        </button>
+                                    {% elif user.role == 'admin' %}
+                                        <button class="btn btn-sm btn-outline-warning px-3" 
+                                                onclick="updateUserRole('{{ user.username }}', 'visitor')">
+                                            Demote to Visitor
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info px-3" 
+                                                onclick="updateUserRole('{{ user.username }}', 'helper')">
+                                            Demote to Helper
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <button class="btn btn-sm btn-{{ 'outline-danger' if user.status == 'active' else 'outline-success' }} px-3" 
+                                            onclick="toggleUserStatus('{{ user.username }}')">
+                                        {{ 'Disable Account' if user.status == 'active' else 'Enable Account' }}
+                                    </button>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-danger">
+            User does not exist.
+        </div>
+    {% endif %}
+    <div class="text-center mt-4 mb-4">
+        <p class="text-muted small mb-0">
+          Developed by Jialin Liu | Student ID: 1161342
+        </p>
+    </div>
+</div>
+
+<!-- JavaScript for admin actions -->
+{% if session.get('role') == 'admin' %}
+<script>
+function updateUserRole(username, newRole) {
+    if (confirm(`Are you sure you want to change the role of user "${username}" to "${newRole}"?`)) {
+        fetch('{{ url_for("update_user_role") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                role: newRole
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to update role: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again later.');
+        });
+    }
+}
+
+function toggleUserStatus(username) {
+    if (confirm(`Are you sure you want to toggle the status of user "${username}"?`)) {
+        fetch('{{ url_for("toggle_user_status") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to update status: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again later.');
+        });
+    }
+}
+</script>
+{% endif %}
+{% endblock %} 

@@ -1,0 +1,159 @@
+{% extends "userbase.html" %}
+{% set active_page = 'issues' %}
+{% block title %}Issue Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Page header: Back button -->
+    <div class="mb-4">
+        <a href="{{ url_for('list_issues') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to List
+        </a>
+    </div>
+
+    {% if issue %}
+        <!-- Issue Card -->
+        <div class="card border-0 shadow mb-4">
+            <!-- Issue Content -->
+            <div class="card-body">
+                <!-- Issue Header: Title, ID, Status and Action Buttons -->
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <div class="text-muted small mb-2">Issue #{{ issue[0] }}</div>
+                        <h2 class="h4 mb-0">{{ issue[2] }}</h2>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="badge bg-{{ {
+                            'new': 'info',
+                            'open': 'primary',
+                            'stalled': 'warning',
+                            'resolved': 'success'
+                        }[issue[4]] }}">{{ issue[4] }}</span>
+                        
+                        <!-- Action Buttons -->
+                        {% if session['role'] in ['helper', 'admin'] %}
+                            {% if issue[4] == 'new' %}
+                                <a href="{{ url_for('change_issue_status', issue_id=issue[0], new_status='open', from='view') }}" 
+                                   class="btn btn-outline-primary btn-sm">Open</a>
+                            {% elif issue[4] == 'open' %}
+                                <a href="{{ url_for('change_issue_status', issue_id=issue[0], new_status='stalled', from='view') }}" 
+                                   class="btn btn-outline-warning btn-sm">Stall</a>
+                                <a href="{{ url_for('change_issue_status', issue_id=issue[0], new_status='resolved', from='view') }}" 
+                                   class="btn btn-outline-success btn-sm">Resolve</a>
+                            {% elif issue[4] == 'stalled' %}
+                                <a href="{{ url_for('change_issue_status', issue_id=issue[0], new_status='open', from='view') }}" 
+                                   class="btn btn-outline-primary btn-sm">Open</a>
+                                <a href="{{ url_for('change_issue_status', issue_id=issue[0], new_status='resolved', from='view') }}" 
+                                   class="btn btn-outline-success btn-sm">Resolve</a>
+                            {% elif issue[4] == 'resolved' %}
+                                <a href="{{ url_for('change_issue_status', issue_id=issue[0], new_status='open', from='view') }}" 
+                                   class="btn btn-outline-primary btn-sm">Reopen</a>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Author Info -->
+                <div class="d-flex align-items-center mb-3">
+                    <img src="{{ issue[8] }}" 
+                         class="rounded-circle object-fit-cover border border-1 me-3" 
+                         alt="Profile picture" 
+                         width="48" 
+                         height="48">
+                    <div class="small">
+                        <div class="fw-bold">{{ issue[6] }} <span class="text-muted">{{ issue[7] }}</span></div>
+                        <div class="text-muted">{{ issue[5].strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="mb-4">
+                    {{ issue[3] }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="card border-0 shadow">
+            <div class="card-body">
+                <h5 class="card-title mb-4">Comments</h5>
+                
+                <!-- Comment Form -->
+                <form action="{{ url_for('add_comment', issue_id=issue[0]) }}" method="post" class="mb-4">
+                    <div class="mb-3">
+                        <textarea class="form-control" name="content" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Comment</button>
+                </form>
+                <div class="mb-4">
+                    <span class="mb-4">Total comments: {{ total }}</span>
+                </div>
+                <!-- Comments List -->
+                {% for comment in comments %}
+                    <div class="d-flex mb-4">
+                        <img src="{{ comment[7] }}" 
+                             class="rounded-circle object-fit-cover border border-1 me-3" 
+                             alt="Profile picture" 
+                             width="48" 
+                             height="48">
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <span class="fw-bold">{{ comment[5] }}</span>
+                                    <span class="text-muted">{{ comment[6] }}</span>
+                                </div>
+                                <small class="text-muted">{{ comment[3].strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                            </div>
+                            <div>{{ comment[2] }}</div>
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                <!-- Pagination -->
+                {% if total_pages > 1 %}
+                <nav aria-label="Comment pagination" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item {{ 'disabled' if current_page == 1 }}">
+                            <a class="page-link" href="{{ url_for('view_issue', issue_id=issue[0], page=current_page-1) if current_page > 1 else '#' }}">Previous</a>
+                        </li>
+                        
+                        {% for page_num in range(1, total_pages + 1) %}
+                        <li class="page-item {{ 'active' if page_num == current_page }}">
+                            <a class="page-link" href="{{ url_for('view_issue', issue_id=issue[0], page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% endfor %}
+                        
+                        <li class="page-item {{ 'disabled' if current_page == total_pages }}">
+                            <a class="page-link" href="{{ url_for('view_issue', issue_id=issue[0], page=current_page+1) if current_page < total_pages else '#' }}">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-danger">
+            Issue not found.
+        </div>
+        <a href="{{ url_for('list_issues') }}" class="btn btn-primary btn-sm">Return to Issues List</a>
+    {% endif %}
+    <div class="text-center mt-4 mb-4">
+        <p class="text-muted small mb-0">
+          Developed by Jialin Liu | Student ID: 1161342
+        </p>
+    </div>
+</div>
+
+<script>
+document.querySelector('textarea[name="content"]').addEventListener('input', function() {
+    var length = this.value.length;
+    document.getElementById('comment-length').textContent = length;
+    
+    if (length < 10 || length > 1000) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+</script>
+{% endblock %} 
