@@ -6,6 +6,8 @@ import re
 from PIL import Image, ExifTags
 import os
 import time
+from datetime import datetime
+from werkzeug.utils import secure_filename
 
 # Create upload folder constant
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -36,13 +38,16 @@ def user_home_url():
     elif role == 'admin':
         home_endpoint = 'admin_home'
     else:
-        home_endpoint = 'login'
+        home_endpoint = 'list_posts'
     
     return url_for(home_endpoint)
 
 @app.route('/')
 def root():
-    return redirect(user_home_url())
+    if 'loggedin' in session:
+        return redirect(user_home_url())
+    else:
+        return redirect(url_for('list_posts'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -500,5 +505,430 @@ def subscription():
 
 @app.route('/posts')
 def list_posts():
+    """帖子列表页面 - 小红书风格。"""
+    # 获取第一页数据
+    page = 1
+    per_page = 12  # 每页显示12条帖子
     
-    return render_template('list.html')
+    with db.get_cursor() as cursor:
+        # 查询帖子基本信息、作者信息和图片数量，修复vote_id可能为NULL的问题
+        cursor.execute('''
+            SELECT 
+                p.post_id, 
+                p.title, 
+                p.content, 
+                p.created_at, 
+                IFNULL(p.vote_id, 0) as vote_id,
+                u.username,
+                u.profile_image,
+                (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
+                (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
+                (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_id = p.vote_id) as likes
+            FROM posts p
+            JOIN users u ON p.user_id = u.user_id
+            ORDER BY p.created_at DESC
+            LIMIT %s OFFSET %s
+        ''', (per_page, (page - 1) * per_page))
+        posts = cursor.fetchall()
+        
+        # 打印帖子数量和第一个帖子的信息，用于调试
+        print(f"获取到 {len(posts)} 条帖子")
+        if posts:
+            print(f"第一个帖子: {posts[0]['title']}, ID: {posts[0]['post_id']}")
+        
+        # 获取总帖子数
+        cursor.execute('SELECT COUNT(*) AS total FROM posts')
+        total_posts = cursor.fetchone()['total']
+        print(f"数据库中共有 {total_posts} 条帖子")
+        
+        # 添加has_vote标志，用于在UI上显示投票标记
+        for post in posts:
+            post['has_vote'] = post['vote_id'] > 0
+            # 确保likes字段不为None
+            if post['likes'] is None:
+                post['likes'] = 0
+    
+    return render_template('list.html', posts=posts, total_posts=total_posts)
+
+@app.route('/api/posts')
+def api_posts():
+    """API接口 - 用于滑动加载更多帖子"""
+    # 获取页码参数
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
+    
+    # 限制每页最大数量为24
+    if per_page > 24:
+        per_page = 24
+    
+    with db.get_cursor() as cursor:
+        # 查询帖子
+        cursor.execute('''
+            SELECT 
+                p.post_id, 
+                p.title, 
+                p.content, 
+                p.created_at, 
+                IFNULL(p.vote_id, 0) as vote_id,
+                u.username,
+                u.profile_image,
+                (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
+                (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
+                (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_id = p.vote_id) as likes
+            FROM posts p
+            JOIN users u ON p.user_id = u.user_id
+            ORDER BY p.created_at DESC
+            LIMIT %s OFFSET %s
+        ''', (per_page, (page - 1) * per_page))
+        posts = cursor.fetchall()
+        
+        # 添加has_vote标志
+        for post in posts:
+            post['has_vote'] = post['vote_id'] > 0
+            # 确保likes字段不为None
+            if post['likes'] is None:
+                post['likes'] = 0
+            
+            # 处理日期格式以便JSON序列化
+            if 'created_at' in post and post['created_at']:
+                post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+    
+    # 返回JSON数据
+    result = {
+        'posts': list(posts),
+        'page': page,
+        'per_page': per_page,
+        'has_more': len(posts) == per_page  # 如果返回的帖子数等于请求的数量，则可能还有更多
+    }
+    
+    from flask import jsonify
+    return jsonify(result)
+
+@app.route('/view_post/<int:post_id>')
+def view_post(post_id):
+    """帖子详情页面。"""
+    # 不再需要登录验证，任何人都可以查看帖子详情
+    
+    with db.get_cursor() as cursor:
+        # 获取帖子基本信息
+        cursor.execute('''
+            SELECT p.post_id, p.title, p.content, p.created_at, p.vote_id,
+                   u.username, u.profile_image
+            FROM posts p
+            JOIN users u ON p.user_id = u.user_id
+            WHERE p.post_id = %s
+        ''', (post_id,))
+        post = cursor.fetchone()
+        
+        if not post:
+            flash('帖子不存在', 'danger')
+            return redirect(url_for('list_posts'))
+        
+        # 获取帖子图片
+        cursor.execute('''
+            SELECT image_path
+            FROM post_images
+            WHERE post_id = %s
+            ORDER BY created_at
+        ''', (post_id,))
+        images = cursor.fetchall()
+        
+        # 获取投票数据
+        vote_data = None
+        if post['vote_id'] > 0:
+            cursor.execute('''
+                SELECT v.vote_id, v.title as vote_title, v.vote_type
+                FROM votes v
+                WHERE v.vote_id = %s
+            ''', (post['vote_id'],))
+            vote = cursor.fetchone()
+            
+            if vote:
+                # 获取投票选项，并计算每个选项的票数
+                cursor.execute('''
+                    SELECT vo.option_id, vo.title,
+                           (SELECT COUNT(*) FROM user_votes uv WHERE uv.option_id = vo.option_id) as vote_count
+                    FROM vote_options vo
+                    WHERE vo.vote_id = %s
+                    ORDER BY vo.created_at
+                ''', (vote['vote_id'],))
+                options = cursor.fetchall()
+                
+                # 计算总票数
+                total_votes = 0
+                for option in options:
+                    total_votes += option['vote_count']
+                
+                # 检查当前用户是否已投票
+                user_voted_options = []
+                if 'loggedin' in session:
+                    cursor.execute('''
+                        SELECT option_id
+                        FROM user_votes
+                        WHERE user_id = %s AND vote_id = %s
+                    ''', (session['user_id'], vote['vote_id']))
+                    user_votes = cursor.fetchall()
+                    user_voted_options = [vote['option_id'] for vote in user_votes] if user_votes else []
+                
+                vote_data = {
+                    'vote': vote,
+                    'options': options,
+                    'total_votes': total_votes,
+                    'user_voted_options': user_voted_options,
+                    'has_voted': len(user_voted_options) > 0
+                }
+    
+    return render_template('post_detail.html', post=post, images=images, vote_data=vote_data)
+
+@app.route('/posts/image/<filename>')
+def get_post_image(filename):
+    """提供帖子图片。"""
+    upload_folder = os.path.join(app.static_folder, 'uploads', 'posts')
+    return send_from_directory(upload_folder, filename)
+
+@app.route('/create_posts', methods=['GET', 'POST'])
+def create_posts():
+    """创建新帖子页面及功能。"""
+    if 'loggedin' not in session:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        content = request.form.get('content', '').strip()
+        poll_data_str = request.form.get('pollData')
+        
+        # 验证输入
+        if not title or not content:
+            flash('请填写所有必填字段')
+            return render_template('create.html')
+            
+        if len(title) > 100:
+            flash('标题不能超过100个字符')
+            return render_template('create.html')
+            
+        if len(title) < 2:
+            flash('标题至少需要2个字符')
+            return render_template('create.html')
+            
+        if len(content) < 10:
+            flash('内容至少需要10个字符')
+            return render_template('create.html')
+            
+        if len(content) > 5000:
+            flash('内容不能超过5000个字符')
+            return render_template('create.html')
+            
+        try:
+            cursor = db.get_db().cursor()
+            
+            # 默认投票ID为0（没有投票）
+            vote_id = 0
+            
+            # 处理投票数据
+            if poll_data_str and poll_data_str != 'null':
+                import json
+                print(f"接收到的投票数据字符串: {poll_data_str}")
+                
+                try:
+                    poll_data = json.loads(poll_data_str)
+                    
+                    if poll_data and isinstance(poll_data, dict):
+                        print(f"解析后的投票数据: {poll_data}")
+                        
+                        # 创建投票
+                        vote_title = poll_data.get('question', '').strip()
+                        allow_multiple = 2 if poll_data.get('allowMultiple', False) else 1
+                        options = poll_data.get('options', [])
+                        
+                        # 验证投票数据
+                        if not vote_title:
+                            print("投票标题为空，跳过投票创建")
+                        elif len(options) < 2:
+                            print(f"投票选项数量不足，当前数量: {len(options)}，跳过投票创建")
+                        else:
+                            print(f"投票标题: {vote_title}")
+                            print(f"是否多选: {allow_multiple}")
+                            print(f"投票选项: {options}")
+                            
+                            # 1. 插入投票主表记录
+                            cursor.execute(
+                                "INSERT INTO votes (title, vote_type, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
+                                (vote_title, allow_multiple)  # 不再使用vote_option_id
+                            )
+                            vote_id = cursor.lastrowid
+                            print(f"已创建投票ID: {vote_id}")
+                            
+                            # 记录选项ID，用于后续更新
+                            option_ids = []
+                            
+                            # 2. 插入投票选项
+                            for option in options:
+                                # 使用新的表结构直接插入带vote_id的选项
+                                if option.strip():  # 确保选项不为空
+                                    cursor.execute(
+                                        "INSERT INTO vote_options (title, vote_id, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
+                                        (option.strip(), vote_id)
+                                    )
+                                    option_id = cursor.lastrowid
+                                    option_ids.append(option_id)
+                                    print(f"已添加选项 '{option}', ID: {option_id}, 关联投票ID: {vote_id}")
+                            
+                            # 不再需要更新投票表的vote_option_id字段
+                            # if option_ids:
+                            #     cursor.execute(
+                            #         "UPDATE votes SET vote_option_id = %s WHERE vote_id = %s",
+                            #         (option_ids[0], vote_id)
+                            #     )
+                            #     print(f"已更新投票表的vote_option_id为: {option_ids[0]}")
+                    else:
+                        print("投票数据为空或格式不正确，跳过投票创建")
+                except Exception as e:
+                    print(f"处理投票数据时出错: {str(e)}")
+                    # 继续处理，不影响帖子的创建
+            
+            # 此处确保vote_id始终有值
+            if vote_id is None:
+                vote_id = 0
+            
+            # 插入文章内容
+            sql = """INSERT INTO posts 
+                    (user_id, vote_id, title, content, created_at, updated_at) 
+                    VALUES (%s, %s, %s, %s, NOW(), NOW())"""
+            values = (session['user_id'], vote_id, title, content)
+            cursor.execute(sql, values)
+            post_id = cursor.lastrowid
+            
+            # 处理图片上传
+            images = request.files.getlist('images[]')
+            if images and images[0].filename:
+                # 确保上传目录存在
+                upload_folder = os.path.join(app.static_folder, 'uploads', 'posts')
+                if not os.path.exists(upload_folder):
+                    os.makedirs(upload_folder)
+                
+                # 存储图片路径，用于后续保存到数据库
+                image_paths = []
+                
+                for image in images:
+                    if image and allowed_file(image.filename):
+                        # 安全地获取文件名并创建唯一文件名
+                        filename = secure_filename(image.filename)
+                        # 添加时间戳防止文件名冲突
+                        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+                        unique_filename = f"{timestamp}_{filename}"
+                        
+                        # 保存图片
+                        file_path = os.path.join(upload_folder, unique_filename)
+                        image.save(file_path)
+                        
+                        # 将路径添加到列表
+                        image_paths.append(unique_filename)
+                        
+                        # 将图片信息保存到数据库
+                        try:
+                            cursor.execute(
+                                "INSERT INTO post_images (post_id, image_path, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
+                                (post_id, unique_filename)
+                            )
+                            print(f"已保存图片路径 '{unique_filename}' 到数据库，关联帖子ID: {post_id}")
+                        except Exception as img_err:
+                            print(f"保存图片数据时出错: {str(img_err)}")
+                            # 继续处理其他图片，不中断流程
+            
+            db.get_db().commit()
+            cursor.close()
+            flash('发布成功', 'success')
+            
+            # 重定向到首页或文章详情页
+            if session['role'] == 'visitor':
+                return redirect(url_for('visitor_home'))
+            elif session['role'] == 'helper':
+                return redirect(url_for('helper_home'))
+            else:
+                return redirect(url_for('admin_home'))
+            
+        except Exception as e:
+            print(f"创建帖子时出错: {str(e)}")
+            flash('发布失败，请稍后重试')
+            return render_template('create.html')
+    
+    return render_template('create.html')
+
+@app.route('/vote/<int:post_id>', methods=['POST'])
+def vote(post_id):
+    """处理用户投票。"""
+    if 'loggedin' not in session:
+        return redirect(url_for('login'))
+    
+    # 检查帖子和投票是否存在
+    with db.get_cursor() as cursor:
+        cursor.execute('SELECT vote_id FROM posts WHERE post_id = %s', (post_id,))
+        post = cursor.fetchone()
+        
+        if not post or post['vote_id'] == 0:
+            flash('投票不存在', 'danger')
+            return redirect(url_for('view_post', post_id=post_id))
+        
+        vote_id = post['vote_id']
+        
+        # 检查投票类型（单选或多选）
+        cursor.execute('SELECT vote_type FROM votes WHERE vote_id = %s', (vote_id,))
+        vote = cursor.fetchone()
+        
+        if not vote:
+            flash('投票不存在', 'danger')
+            return redirect(url_for('view_post', post_id=post_id))
+        
+        # 获取用户选择的选项
+        if vote['vote_type'] == 2:  # 多选
+            options = request.form.getlist('options[]')
+            if not options:
+                flash('请至少选择一个选项', 'warning')
+                return redirect(url_for('view_post', post_id=post_id))
+            
+            # 检查用户是否已经投过票
+            cursor.execute(
+                'SELECT 1 FROM user_votes WHERE user_id = %s AND vote_id = %s',
+                (session['user_id'], vote_id)
+            )
+            if cursor.fetchone():
+                # 删除用户之前的投票
+                cursor.execute(
+                    'DELETE FROM user_votes WHERE user_id = %s AND vote_id = %s',
+                    (session['user_id'], vote_id)
+                )
+            
+            # 保存用户的多选投票
+            for option_id in options:
+                cursor.execute(
+                    'INSERT INTO user_votes (user_id, vote_id, option_id, created_at) VALUES (%s, %s, %s, NOW())',
+                    (session['user_id'], vote_id, option_id)
+                )
+        else:  # 单选
+            option_id = request.form.get('option')
+            if not option_id:
+                flash('请选择一个选项', 'warning')
+                return redirect(url_for('view_post', post_id=post_id))
+            
+            # 检查用户是否已经投过票
+            cursor.execute(
+                'SELECT 1 FROM user_votes WHERE user_id = %s AND vote_id = %s',
+                (session['user_id'], vote_id)
+            )
+            if cursor.fetchone():
+                # 更新用户的投票
+                cursor.execute(
+                    'UPDATE user_votes SET option_id = %s, created_at = NOW() WHERE user_id = %s AND vote_id = %s',
+                    (option_id, session['user_id'], vote_id)
+                )
+            else:
+                # 添加新的投票
+                cursor.execute(
+                    'INSERT INTO user_votes (user_id, vote_id, option_id, created_at) VALUES (%s, %s, %s, NOW())',
+                    (session['user_id'], vote_id, option_id)
+                )
+        
+        db.get_db().commit()
+        flash('投票成功', 'success')
+        
+    return redirect(url_for('view_post', post_id=post_id))

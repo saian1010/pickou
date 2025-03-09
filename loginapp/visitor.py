@@ -9,5 +9,5 @@ def visitor_home():
         return redirect(url_for('login'))
     elif session['role'] != 'visitor':
         return render_template('access_denied.html'), 403
-
-    return render_template('list.html')
+    
+    return redirect(url_for('list_posts'))

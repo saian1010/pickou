@@ -1,93 +1,806 @@
 {% extends "userbase.html" %}
-{% set active_page = 'issues' %}
-{% block title %}Create New Issue{% endblock %}
+{% set active_page = 'create' %}
+{% block title %}创建笔记{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Create New Issue</h2>
-    
-    <!-- Flash Messages - Display system notifications -->
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <!-- Issue Creation Form -->
-    <form method="POST">
-        <!-- Summary Field - Brief description of the issue -->
-        <div class="form-group mb-3">
-            <label for="summary">Summary</label>
-            <input type="text" 
-                   class="form-control" 
-                   id="summary" 
-                   name="summary" 
-                   required 
-                   maxlength="255"
-                   pattern=".{3,255}"
-                   title="Summary must be between 3 and 255 characters">
-            <div class="form-text">
-                <span id="summary-length">0</span>/255 characters (minimum 3)
-            </div>
+<div class="container mt-3 mb-5">
+    <!-- Form Container with XHS style -->
+    <div class="xhs-create-container">
+        <!-- Tab Navigation -->
+        <div class="xhs-create-tabs mb-3">
+            <div class="tab-active">笔记</div>
         </div>
         
-        <!-- Description Field - Detailed explanation of the issue -->
-        <div class="form-group mb-3">
-            <label for="description">Description</label>
-            <textarea class="form-control" 
-                      id="description" 
-                      name="description" 
-                      rows="5" 
-                      required
-                      minlength="10"
-                      maxlength="5000"></textarea>
-            <div class="form-text">
-                <span id="description-length">0</span>/5000 characters (minimum 10)
-            </div>
-        </div>
-        
-        <!-- Form Actions -->
-        <div class="mt-3">
-            <button type="submit" class="btn btn-primary">Submit Issue</button>
-            <a href="{{ url_for('list_issues') }}" class="btn btn-secondary">Back to List</a>
-        </div>
-    </form>
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-info">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-    <!-- Footer Information -->
-    <div class="text-center mt-4 mb-4">
-        <p class="text-muted small mb-0">
-          Developed by Jialin Liu | Student ID: 1161342
-        </p>
+        <!-- Content Creation Form -->
+        <form id="createForm" method="POST" action="{{ url_for('create_posts') }}" enctype="multipart/form-data">
+            <!-- 添加隐藏的投票数据字段 -->
+            <input type="hidden" id="pollDataField" name="pollData" value="">
+            
+            <!-- Title Field -->
+            <div class="form-group mb-3">
+                <input type="text" 
+                       class="form-control xhs-input" 
+                       id="title" 
+                       name="title" 
+                       required 
+                       maxlength="100"
+                       placeholder="标题（必填）" 
+                       pattern=".{2,100}"
+                       title="标题必须在2到100个字符之间">
+                <div class="xhs-form-text">
+                    <span id="title-length">0</span>/100
+                </div>
+            </div>
+            
+            <!-- Description Field -->
+            <div class="form-group mb-3">
+                <textarea class="form-control xhs-textarea" 
+                          id="content" 
+                          name="content" 
+                          rows="5" 
+                          required
+                          minlength="10"
+                          maxlength="5000"
+                          placeholder="分享你的想法...（必填）"></textarea>
+                <div class="xhs-form-text">
+                    <span id="content-length">0</span>/5000
+                </div>
+            </div>
+            
+            <!-- Image Upload Section -->
+            <div class="form-group mb-3">
+                <div class="xhs-image-upload" id="imageUploadArea">
+                    <div class="xhs-upload-placeholder" id="uploadPlaceholder">
+                        <i class="bi bi-image"></i>
+                        <div>添加图片</div>
+                    </div>
+                    <input type="file" id="imageUpload" name="images[]" accept="image/*" multiple style="display: none;">
+                    <div id="imagePreviewContainer" class="xhs-image-preview-container"></div>
+                </div>
+            </div>
+            
+            <!-- Poll Section (initially hidden) -->
+            <div id="pollContainer" class="xhs-poll-container mb-3" style="display: none;">
+                <div class="xhs-poll-header">
+                    <h5>投票</h5>
+                    <button type="button" class="xhs-edit-btn" id="editPollBtn">编辑</button>
+                </div>
+                <div id="pollPreview" class="xhs-poll-preview"></div>
+            </div>
+            
+            <!-- Feature Buttons -->
+            <div class="xhs-feature-buttons mb-3">
+                <button type="button" id="createPollBtn" class="xhs-feature-btn">
+                    <i class="bi bi-bar-chart"></i>
+                    <span>投票</span>
+                </button>
+            </div>
+            
+            <!-- Poll Creation Modal -->
+            <div class="modal fade" id="pollModal" tabindex="-1" aria-labelledby="pollModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="pollModalLabel">创建投票</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="pollQuestion" class="form-label">投票问题</label>
+                                <input type="text" class="form-control" id="pollQuestion" placeholder="请输入投票问题">
+                            </div>
+                            <div id="pollOptionsContainer">
+                                <div class="mb-2 poll-option-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control poll-option" placeholder="选项1">
+                                        <!-- <button class="btn btn-outline-secondary delete-option" type="button" disabled>
+                                            <i class="bi bi-x"></i>
+                                        </button> -->
+                                    </div>
+                                </div>
+                                <div class="mb-2 poll-option-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control poll-option" placeholder="选项2">
+                                        <!-- <button class="btn btn-outline-secondary delete-option" type="button" disabled>
+                                            <i class="bi bi-x"></i>
+                                        </button> -->
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" id="addOptionBtn" class="btn btn-sm xhs-btn-light mt-2">
+                                <i class="bi bi-plus"></i> 添加选项
+                            </button>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" id="allowMultipleVotes">
+                                <label class="form-check-label" for="allowMultipleVotes">
+                                    允许多选
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" id="savePollBtn" class="btn xhs-btn-primary">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="xhs-form-actions">
+                <button type="button" id="draftBtn" class="btn xhs-btn-light me-2">存草稿</button>
+                <button type="submit" id="publishBtn" class="btn xhs-btn-primary">发布</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Real-time Character Count Scripts -->
-<script>
-// Summary field character counter
-document.getElementById('summary').addEventListener('input', function() {
-    var length = this.value.length;
-    document.getElementById('summary-length').textContent = length;
+<style>
+    /* Xiaohongshu Create Page Styles */
+    .xhs-create-container {
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        padding: 16px;
+        max-width: 600px;
+        margin: 0 auto;
+    }
     
-    // Add visual feedback for invalid input
-    if (length > 255) {
-        this.classList.add('is-invalid');
-    } else {
-        this.classList.remove('is-invalid');
+    .xhs-create-tabs {
+        display: flex;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 12px;
+    }
+    
+    .xhs-create-tabs .tab-active {
+        color: var(--xhs-primary);
+        font-weight: 600;
+        position: relative;
+        padding: 0 12px;
+    }
+    
+    .xhs-create-tabs .tab-active:after {
+        content: '';
+        position: absolute;
+        bottom: -13px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: var(--xhs-primary);
+    }
+    
+    .xhs-input, .xhs-textarea {
+        border: none;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+        border-radius: 0;
+        font-size: 16px;
+        transition: all 0.2s;
+    }
+    
+    .xhs-input:focus, .xhs-textarea:focus {
+        outline: none;
+        box-shadow: none;
+        border-color: var(--xhs-primary);
+    }
+    
+    .xhs-textarea {
+        min-height: 120px;
+        resize: none;
+    }
+    
+    .xhs-form-text {
+        color: #999;
+        font-size: 12px;
+        text-align: right;
+        margin-top: 4px;
+    }
+    
+    .xhs-image-upload {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .xhs-upload-placeholder {
+        width: 100px;
+        height: 100px;
+        border: 1px dashed #ddd;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .xhs-upload-placeholder:hover {
+        border-color: var(--xhs-primary);
+        color: var(--xhs-primary);
+    }
+    
+    .xhs-upload-placeholder i {
+        font-size: 24px;
+        margin-bottom: 4px;
+    }
+    
+    .xhs-image-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 8px;
+        object-fit: cover;
+        position: relative;
+        display: inline-block;
+    }
+    
+    .xhs-image-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .xhs-image-preview-wrapper {
+        position: relative;
+    }
+    
+    .xhs-image-delete {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 10px;
+    }
+    
+    .xhs-feature-buttons {
+        display: flex;
+        gap: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .xhs-feature-btn {
+        background: none;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #666;
+        transition: all 0.2s;
+        padding: 6px 12px;
+        border-radius: 20px;
+    }
+    
+    .xhs-feature-btn:hover {
+        background-color: #f8f8f8;
+        color: var(--xhs-primary);
+    }
+    
+    .xhs-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 16px;
+    }
+    
+    .xhs-btn-primary {
+        background-color: var(--xhs-primary);
+        border: none;
+        color: white;
+        border-radius: 20px;
+        padding: 8px 24px;
+        font-weight: 500;
+    }
+    
+    .xhs-btn-primary:hover {
+        background-color: #e61e39;
+        color: white;
+    }
+    
+    .xhs-btn-primary:disabled {
+        background-color: #ffc5ce;
+    }
+    
+    .xhs-btn-light {
+        background-color: #f5f5f5;
+        border: none;
+        color: #666;
+        border-radius: 20px;
+        padding: 8px 24px;
+    }
+    
+    .xhs-btn-light:hover {
+        background-color: #ebebeb;
+    }
+    
+    .xhs-poll-container {
+        background-color: #f9f9f9;
+        border-radius: 12px;
+        padding: 16px;
+    }
+    
+    .xhs-poll-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    
+    .xhs-poll-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    
+    .xhs-edit-btn {
+        background: none;
+        border: none;
+        color: var(--xhs-primary);
+        font-size: 14px;
+    }
+    
+    .xhs-poll-preview {
+        color: #333;
+    }
+    
+    .xhs-poll-option {
+        background-color: white;
+        border-radius: 8px;
+        padding: 10px 16px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .modal-content {
+        border-radius: 12px;
+    }
+    
+    .modal-header {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .modal-footer {
+        border-top: none;
+    }
+</style>
+
+<script>
+// Title and content character counting
+document.getElementById('title').addEventListener('input', function() {
+    const length = this.value.length;
+    document.getElementById('title-length').textContent = length;
+    
+    // Validate form fields to enable/disable publish button
+    validateForm();
+});
+
+document.getElementById('content').addEventListener('input', function() {
+    const length = this.value.length;
+    document.getElementById('content-length').textContent = length;
+    
+    // Validate form fields to enable/disable publish button
+    validateForm();
+});
+
+// Image upload handling
+document.getElementById('uploadPlaceholder').addEventListener('click', function() {
+    document.getElementById('imageUpload').click();
+});
+
+document.getElementById('imageUpload').addEventListener('change', function(e) {
+    handleImageUpload(e.target.files);
+});
+
+function handleImageUpload(files) {
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Only process image files
+        if (!file.type.match('image.*')) {
+            continue;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (function(theFile) {
+            return function(e) {
+                // Create preview wrapper
+                const previewWrapper = document.createElement('div');
+                previewWrapper.className = 'xhs-image-preview-wrapper';
+                
+                // Create image preview
+                const img = document.createElement('img');
+                img.className = 'xhs-image-preview';
+                img.src = e.target.result;
+                img.title = theFile.name;
+                
+                // Create delete button
+                const deleteBtn = document.createElement('div');
+                deleteBtn.className = 'xhs-image-delete';
+                deleteBtn.innerHTML = '<i class="bi bi-x"></i>';
+                deleteBtn.addEventListener('click', function() {
+                    previewWrapper.remove();
+                });
+                
+                // Append elements
+                previewWrapper.appendChild(img);
+                previewWrapper.appendChild(deleteBtn);
+                previewContainer.appendChild(previewWrapper);
+            };
+        })(file);
+        
+        reader.readAsDataURL(file);
+    }
+}
+
+// Poll creation
+let pollData = null;
+const pollModal = new bootstrap.Modal(document.getElementById('pollModal'));
+
+document.getElementById('createPollBtn').addEventListener('click', function() {
+    pollModal.show();
+});
+
+document.getElementById('addOptionBtn').addEventListener('click', function() {
+    const optionsContainer = document.getElementById('pollOptionsContainer');
+    const optionCount = optionsContainer.querySelectorAll('.poll-option-input').length;
+    
+    // 限制最多6个选项
+    if (optionCount >= 6) {
+        alert('最多只能添加6个选项');
+        return;
+    }
+    
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'mb-2 poll-option-input';
+    optionDiv.innerHTML = `
+        <div class="input-group">
+            <input type="text" class="form-control poll-option" placeholder="选项${optionCount + 1}">
+            <button class="btn btn-outline-secondary delete-option" type="button">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    `;
+    
+    optionsContainer.appendChild(optionDiv);
+    
+    // 当选项数量达到6个时，禁用添加按钮
+    if (optionCount + 1 >= 6) {
+        document.getElementById('addOptionBtn').disabled = true;
+    }
+    
+    // Add event listener to the new delete button
+    const deleteBtn = optionDiv.querySelector('.delete-option');
+    deleteBtn.addEventListener('click', function() {
+        optionDiv.remove();
+        
+        // 启用添加按钮
+        document.getElementById('addOptionBtn').disabled = false;
+        
+        // Update placeholders
+        updateOptionPlaceholders();
+    });
+});
+
+function enableDeleteButtons() {
+    // 只启用非默认选项的删除按钮（第3个及以后的选项）
+    const deleteButtons = document.querySelectorAll('.delete-option');
+    for (let i = 2; i < deleteButtons.length; i++) {
+        deleteButtons[i].disabled = false;
+    }
+}
+
+function disableDeleteButtons() {
+    document.querySelectorAll('.delete-option').forEach(btn => {
+        btn.disabled = true;
+    });
+}
+
+function updateOptionPlaceholders() {
+    document.querySelectorAll('.poll-option').forEach((input, index) => {
+        input.placeholder = `选项${index + 1}`;
+    });
+}
+
+document.getElementById('savePollBtn').addEventListener('click', function() {
+    const question = document.getElementById('pollQuestion').value.trim();
+    if (!question) {
+        alert('请输入投票问题');
+        return;
+    }
+    
+    const options = [];
+    document.querySelectorAll('.poll-option').forEach(input => {
+        const optionText = input.value.trim();
+        if (optionText) {
+            options.push(optionText);
+        }
+    });
+    
+    if (options.length < 2) {
+        alert('至少需要2个投票选项');
+        return;
+    }
+    
+    const allowMultiple = document.getElementById('allowMultipleVotes').checked;
+    
+    // Save poll data
+    pollData = {
+        question: question,
+        options: options,
+        allowMultiple: allowMultiple
+    };
+    
+    // Update poll preview
+    updatePollPreview();
+    
+    // Show poll container
+    document.getElementById('pollContainer').style.display = 'block';
+    
+    // 隐藏投票按钮
+    document.getElementById('createPollBtn').style.display = 'none';
+    
+    // Close modal
+    pollModal.hide();
+    
+    // Validate form
+    validateForm();
+});
+
+function updatePollPreview() {
+    const previewContainer = document.getElementById('pollPreview');
+    
+    if (!pollData) {
+        // 没有投票数据，隐藏投票容器，显示投票按钮
+        document.getElementById('pollContainer').style.display = 'none';
+        document.getElementById('createPollBtn').style.display = 'block';
+        return;
+    }
+    
+    // 清空预览区域
+    previewContainer.innerHTML = '';
+    
+    // 添加问题
+    const questionElement = document.createElement('div');
+    questionElement.className = 'fw-bold mb-2';
+    questionElement.textContent = pollData.question;
+    previewContainer.appendChild(questionElement);
+    
+    // 添加选项
+    pollData.options.forEach(option => {
+        const optionElement = document.createElement('div');
+        optionElement.className = 'xhs-poll-option';
+        optionElement.textContent = option;
+        previewContainer.appendChild(optionElement);
+    });
+    
+    // 多选指示器
+    if (pollData.allowMultiple) {
+        const multipleElement = document.createElement('div');
+        multipleElement.className = 'small text-muted mt-2';
+        multipleElement.textContent = '允许多选';
+        previewContainer.appendChild(multipleElement);
+    }
+    
+    // 添加删除投票按钮
+    const deleteRow = document.createElement('div');
+    deleteRow.className = 'd-flex justify-content-end mt-2';
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-sm btn-link text-danger';
+    deleteBtn.textContent = '删除投票';
+    deleteBtn.addEventListener('click', function() {
+        // 删除投票数据
+        pollData = null;
+        
+        // 更新预览（会隐藏投票容器）
+        updatePollPreview();
+        
+        // 重新验证表单
+        validateForm();
+    });
+    
+    deleteRow.appendChild(deleteBtn);
+    previewContainer.appendChild(deleteRow);
+    
+    // 显示投票容器，隐藏投票按钮
+    document.getElementById('pollContainer').style.display = 'block';
+    document.getElementById('createPollBtn').style.display = 'none';
+}
+
+document.getElementById('editPollBtn').addEventListener('click', function() {
+    if (pollData) {
+        // Pre-fill poll modal with existing data
+        document.getElementById('pollQuestion').value = pollData.question;
+        
+        // Clear existing options
+        const optionsContainer = document.getElementById('pollOptionsContainer');
+        optionsContainer.innerHTML = '';
+        
+        // Add options
+        pollData.options.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'mb-2 poll-option-input';
+            
+            // 前两个选项不能删除，后面的可以删除
+            const isDefaultOption = index < 2;
+            
+            optionDiv.innerHTML = `
+                <div class="input-group">
+                    <input type="text" class="form-control poll-option" placeholder="选项${index + 1}" value="${option}">
+                    <button class="btn btn-outline-secondary delete-option" type="button" ${isDefaultOption ? 'disabled' : ''}>
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `;
+            optionsContainer.appendChild(optionDiv);
+            
+            // Add event listener to the delete button (for non-default options)
+            if (!isDefaultOption) {
+                const deleteBtn = optionDiv.querySelector('.delete-option');
+                deleteBtn.addEventListener('click', function() {
+                    optionDiv.remove();
+                    
+                    // 重新启用添加按钮
+                    document.getElementById('addOptionBtn').disabled = false;
+                    
+                    // Update placeholders
+                    updateOptionPlaceholders();
+                });
+            }
+        });
+        
+        // 设置添加按钮状态
+        document.getElementById('addOptionBtn').disabled = pollData.options.length >= 6;
+        
+        // Set multiple choice checkbox
+        document.getElementById('allowMultipleVotes').checked = pollData.allowMultiple;
+        
+        // Show modal
+        pollModal.show();
     }
 });
 
-// Description field character counter
-document.getElementById('description').addEventListener('input', function() {
-    var length = this.value.length;
-    document.getElementById('description-length').textContent = length;
+// Form validation
+function validateForm() {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    const publishBtn = document.getElementById('publishBtn');
     
-    // Add visual feedback for invalid input
-    if (length < 10 || length > 5000) {
-        this.classList.add('is-invalid');
+    // 只需要标题和内容满足要求即可发布，投票是可选的
+    if (title.length >= 2 && title.length <= 100 && 
+        content.length >= 10 && content.length <= 5000) {
+        publishBtn.disabled = false;
     } else {
-        this.classList.remove('is-invalid');
+        publishBtn.disabled = true;
+    }
+}
+
+// Publishing action
+document.getElementById('createForm').addEventListener('submit', function(e) {
+    // 阻止默认提交以便我们处理数据
+    e.preventDefault();
+    
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    
+    // 验证必填字段
+    if (title.length < 2 || title.length > 100) {
+        alert('标题必须在2-100个字符之间');
+        return;
+    }
+    
+    if (content.length < 10 || content.length > 5000) {
+        alert('内容必须在10-5000个字符之间');
+        return;
+    }
+    
+    try {
+        // 将投票数据设置到隐藏字段中
+        const pollDataField = document.getElementById('pollDataField');
+        if (pollData) {
+            console.log('投票数据详情:', {
+                question: pollData.question,
+                options: pollData.options,
+                allowMultiple: pollData.allowMultiple
+            });
+            pollDataField.value = JSON.stringify(pollData);
+            console.log('设置投票数据成功，JSON字符串长度:', pollDataField.value.length);
+        } else {
+            pollDataField.value = JSON.stringify(null);
+            console.log('无投票数据，设置为null');
+        }
+        
+        console.log('表单提交中，数据:', {
+            title: title,
+            content: content,
+            hasPollData: pollData !== null,
+            pollDataFieldValue: pollDataField.value && pollDataField.value.substring(0, 50) + '...'
+        });
+        
+        // 提交表单
+        this.submit();
+    } catch (error) {
+        console.error('提交表单时出错:', error);
+        alert('提交失败，请重试');
+    }
+});
+
+// Draft saving action
+document.getElementById('draftBtn').addEventListener('click', function() {
+    // Here we would normally save a draft
+    // For this UI prototype, we'll just log the data
+    
+    const draftData = {
+        title: document.getElementById('title').value,
+        content: document.getElementById('content').value,
+        pollData: pollData
+    };
+    
+    // Save to local storage
+    localStorage.setItem('contentDraft', JSON.stringify(draftData));
+    
+    alert('草稿已保存');
+});
+
+// Load draft if exists
+document.addEventListener('DOMContentLoaded', function() {
+    const savedDraft = localStorage.getItem('contentDraft');
+    
+    if (savedDraft) {
+        try {
+            const draftData = JSON.parse(savedDraft);
+            
+            // Load title and content
+            if (draftData.title) {
+                document.getElementById('title').value = draftData.title;
+                document.getElementById('title-length').textContent = draftData.title.length;
+            }
+            
+            if (draftData.content) {
+                document.getElementById('content').value = draftData.content;
+                document.getElementById('content-length').textContent = draftData.content.length;
+            }
+            
+            // Load poll data if exists
+            if (draftData.pollData) {
+                pollData = draftData.pollData;
+                updatePollPreview();
+                document.getElementById('pollContainer').style.display = 'block';
+                // 隐藏投票按钮
+                document.getElementById('createPollBtn').style.display = 'none';
+            }
+            
+            // Validate form
+            validateForm();
+            
+        } catch (e) {
+            console.error('Error loading draft:', e);
+        }
     }
 });
 </script>

@@ -1,0 +1,308 @@
+{% extends "userbase.html" %}
+{% set active_page = 'home' %}
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <!-- 返回按钮 -->
+    <div class="mb-3">
+        <a href="{{ url_for('list_posts') }}" class="btn btn-sm xhs-btn-light">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+    
+    <!-- 帖子内容卡片 -->
+    <div class="card xhs-post-card mb-4">
+        <div class="card-header bg-transparent">
+            <div class="d-flex align-items-center">
+                <!-- 用户头像 -->
+                {% if post.profile_image %}
+                    <img src="{{ url_for('get_profile_image', filename=post.profile_image) }}" class="rounded-circle me-2" width="40" height="40" alt="{{ post.username }}">
+                {% else %}
+                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                        {{ post.username[0]|upper }}
+                    </div>
+                {% endif %}
+                
+                <!-- 用户名和发布时间 -->
+                <div>
+                    <div class="fw-bold">{{ post.username }}</div>
+                    <small class="text-muted">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <!-- 帖子标题 -->
+            <h4 class="card-title mb-3">{{ post.title }}</h4>
+            
+            <!-- 帖子内容 -->
+            <div class="card-text mb-4">
+                {{ post.content|nl2br }}
+            </div>
+            
+            <!-- 帖子图片 -->
+            {% if images %}
+                <div class="xhs-image-gallery mb-4">
+                    <div class="row g-2">
+                        {% for image in images %}
+                            <div class="col-md-4 col-6">
+                                <div class="xhs-image-container">
+                                    <img src="{{ url_for('get_post_image', filename=image.image_path) }}" 
+                                         class="img-fluid xhs-post-image" 
+                                         alt="帖子图片"
+                                         data-bs-toggle="modal"
+                                         data-bs-target="#imageModal"
+                                         data-bs-img="{{ url_for('get_post_image', filename=image.image_path) }}">
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- 投票 -->
+            {% if vote_data %}
+                <div class="xhs-vote-container mt-4">
+                    <h5 class="mb-3">{{ vote_data.vote.vote_title }}</h5>
+                    
+                    {% if 'loggedin' not in session %}
+                        <!-- 未登录用户只能查看投票结果 -->
+                        <div class="xhs-vote-results">
+                            <p class="text-muted small mb-3">共 {{ vote_data.total_votes }} 人参与投票</p>
+                            
+                            {% for option in vote_data.options %}
+                                {% set percentage = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <div>{{ option.title }}</div>
+                                        <div>{{ percentage }}% ({{ option.vote_count }}票)</div>
+                                    </div>
+                                    
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar bg-secondary" 
+                                             role="progressbar" 
+                                             style="width: {{ percentage }}%;" 
+                                             aria-valuenow="{{ percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            
+                            <div class="alert alert-info mt-3">
+                                <i class="bi bi-info-circle"></i> 
+                                登录后才能参与投票。<a href="{{ url_for('login') }}" class="alert-link">立即登录</a>
+                            </div>
+                        </div>
+                    {% elif vote_data.has_voted %}
+                        <!-- 已投票用户查看结果 -->
+                        <div class="xhs-vote-results">
+                            <p class="text-muted small mb-3">共 {{ vote_data.total_votes }} 人参与投票</p>
+                            
+                            {% for option in vote_data.options %}
+                                {% set percentage = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <div>{{ option.title }}</div>
+                                        <div>{{ percentage }}% ({{ option.vote_count }}票)</div>
+                                    </div>
+                                    
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar {% if option.option_id in vote_data.user_voted_options %}bg-primary{% else %}bg-secondary{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ percentage }}%;" 
+                                             aria-valuenow="{{ percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            
+                            <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post" class="mt-3">
+                                {% if vote_data.vote.vote_type == 2 %}
+                                    <!-- 多选重新投票 -->
+                                    {% for option in vote_data.options %}
+                                        <div class="form-check xhs-vote-option mb-2">
+                                            <input class="form-check-input" type="checkbox" name="options[]" 
+                                                   id="optionRevote{{ option.option_id }}" value="{{ option.option_id }}"
+                                                   {% if option.option_id in vote_data.user_voted_options %}checked{% endif %}>
+                                            <label class="form-check-label" for="optionRevote{{ option.option_id }}">
+                                                {{ option.title }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- 单选重新投票 -->
+                                    {% for option in vote_data.options %}
+                                        <div class="form-check xhs-vote-option mb-2">
+                                            <input class="form-check-input" type="radio" name="option" 
+                                                   id="optionRevote{{ option.option_id }}" value="{{ option.option_id }}"
+                                                   {% if option.option_id in vote_data.user_voted_options %}checked{% endif %}>
+                                            <label class="form-check-label" for="optionRevote{{ option.option_id }}">
+                                                {{ option.title }}
+                                            </label>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                                <button type="submit" class="btn xhs-btn-outline mt-2">重新投票</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <!-- 未投票用户的投票表单 -->
+                        <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
+                            {% for option in vote_data.options %}
+                                <div class="mb-2">
+                                    {% if vote_data.vote.vote_type == 2 %}
+                                        <!-- 多选投票 -->
+                                        <div class="form-check xhs-vote-option">
+                                            <input class="form-check-input" type="checkbox" name="options[]" id="option{{ option.option_id }}" value="{{ option.option_id }}">
+                                            <label class="form-check-label d-block w-100" for="option{{ option.option_id }}">
+                                                {{ option.title }}
+                                            </label>
+                                        </div>
+                                    {% else %}
+                                        <!-- 单选投票 -->
+                                        <div class="form-check xhs-vote-option">
+                                            <input class="form-check-input" type="radio" name="option" id="option{{ option.option_id }}" value="{{ option.option_id }}">
+                                            <label class="form-check-label d-block w-100" for="option{{ option.option_id }}">
+                                                {{ option.title }}
+                                            </label>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                            <button type="submit" class="btn xhs-btn-primary mt-2">投票</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- 图片查看模态框 -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="" class="img-fluid" id="modalImage">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .xhs-post-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        border: none;
+    }
+    
+    .xhs-btn-light {
+        background-color: #f5f5f5;
+        border: none;
+        color: #666;
+        border-radius: 20px;
+        padding: 6px 16px;
+    }
+    
+    .xhs-btn-light:hover {
+        background-color: #ebebeb;
+    }
+    
+    .xhs-image-container {
+        position: relative;
+        padding-top: 100%; /* 1:1 Aspect Ratio */
+        overflow: hidden;
+        border-radius: 8px;
+    }
+    
+    .xhs-post-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+    
+    .xhs-post-image:hover {
+        transform: scale(1.02);
+    }
+    
+    .xhs-btn-primary {
+        background-color: var(--xhs-primary);
+        border: none;
+        color: white;
+        border-radius: 20px;
+        padding: 8px 24px;
+    }
+    
+    .xhs-btn-primary:hover {
+        background-color: #e61e39;
+        color: white;
+    }
+    
+    .xhs-btn-outline {
+        background-color: transparent;
+        border: 1px solid var(--xhs-primary);
+        color: var(--xhs-primary);
+        border-radius: 20px;
+        padding: 7px 24px;
+    }
+    
+    .xhs-btn-outline:hover {
+        background-color: var(--xhs-light);
+    }
+    
+    .xhs-vote-option {
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        padding: 10px 16px;
+        transition: all 0.2s;
+    }
+    
+    .xhs-vote-option:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .alert-info {
+        background-color: #f0f7ff;
+        border-color: #d0e6ff;
+        color: #0066cc;
+        border-radius: 8px;
+    }
+    
+    .alert-link {
+        color: #0052a3;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    
+    .alert-link:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<script>
+    // 为图片模态框设置点击事件
+    document.addEventListener('DOMContentLoaded', function() {
+        const imageModal = document.getElementById('imageModal');
+        if (imageModal) {
+            imageModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const imgSrc = button.getAttribute('data-bs-img');
+                document.getElementById('modalImage').src = imgSrc;
+            });
+        }
+    });
+</script>
+{% endblock %} 
