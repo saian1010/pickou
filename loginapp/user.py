@@ -478,3 +478,27 @@ def logout():
     session.pop('role', None)
     
     return redirect(url_for('login'))
+
+
+@app.route('/messages')
+def messages():
+
+    return render_template('messages.html')
+
+
+@app.route('/me')
+def me():
+
+    return render_template('me.html')
+
+
+@app.route('/subscription')
+def subscription():
+
+    return render_template('subscription.html')
+
+
+@app.route('/posts')
+def list_posts():
+    
+    return render_template('list.html')
