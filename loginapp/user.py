@@ -38,16 +38,13 @@ def user_home_url():
     elif role == 'admin':
         home_endpoint = 'admin_home'
     else:
-        home_endpoint = 'list_posts'
+        home_endpoint = 'visitor_home'
     
     return url_for(home_endpoint)
 
 @app.route('/')
 def root():
-    if 'loggedin' in session:
-        return redirect(user_home_url())
-    else:
-        return redirect(url_for('list_posts'))
+    return redirect(user_home_url())
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -218,8 +215,8 @@ def profile():
 
     with db.get_cursor() as cursor:
         cursor.execute('''
-            SELECT username, email, first_name, last_name, location, 
-                   role, status, profile_image 
+            SELECT username, email, first_name, last_name, 
+                   role, status, profile_image, user_id
             FROM users 
             WHERE user_id = %s;
         ''', (session['user_id'],))
@@ -237,21 +234,18 @@ def update_profile():
     email = request.form.get('email', '').strip()
     first_name = request.form.get('first_name', '').strip()
     last_name = request.form.get('last_name', '').strip()
-    location = request.form.get('location', '').strip()
 
     # Initialize error variables
     errors = {}
 
     # Check if all required fields are present
-    if not all([email, first_name, last_name, location]):
+    if not all([email, first_name, last_name]):
         if not email:
             errors['email_error'] = 'Email is required.'
         if not first_name:
             errors['first_name_error'] = 'First name is required.'
         if not last_name:
             errors['last_name_error'] = 'Last name is required.'
-        if not location:
-            errors['location_error'] = 'Location is required.'
     else:
         # Validate fields
         email_pattern = r'[a-zA-Z0-9][a-zA-Z0-9-_.]{1,}@[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*\.[a-zA-Z]{2,}'
@@ -265,27 +259,24 @@ def update_profile():
 
         if len(last_name) > 50 or len(last_name) < 2:
             errors['last_name_error'] = 'Last name must be between 2 and 50 characters.'
-
-        if len(location) > 50:
-            errors['location_error'] = 'Location cannot exceed 50 characters.'
     
     # If there are errors, re-fetch profile and return with errors
     with db.get_cursor() as cursor:
         cursor.execute('''
-            SELECT username, email, first_name, last_name, location, 
-                    role, status, profile_image 
+            SELECT username, email, first_name, last_name, 
+                   role, status, profile_image, user_id
             FROM users 
             WHERE user_id = %s;
         ''', (session['user_id'],))
         profile = cursor.fetchone()
 
-    if profile["email"] != email:
+    if profile.get("email") and email and profile["email"] != email:
         # Check if email already exists
         with db.get_cursor() as cursor:
-            cursor.execute('SELECT 1 FROM users WHERE email = %s', (email,))
+            cursor.execute('SELECT 1 FROM users WHERE email = %s AND user_id != %s', (email, session['user_id']))
             if cursor.fetchone():
                 errors['email_error'] = 'Email already exists.'
-        profile["email"]=email
+        profile["email"] = email
 
     # If there are errors, re-render the profile page with error messages
     if errors:
@@ -295,9 +286,9 @@ def update_profile():
     with db.get_cursor() as cursor:
         cursor.execute('''
             UPDATE users 
-            SET email = %s, first_name = %s, last_name = %s, location = %s 
+            SET email = %s, first_name = %s, last_name = %s 
             WHERE user_id = %s
-        ''', (email, first_name, last_name, location, session['user_id']))
+        ''', (email, first_name, last_name, session['user_id']))
         db.get_db().commit()
 
     flash('Profile updated successfully', 'success')
@@ -332,6 +323,11 @@ def update_profile_image():
     if 'loggedin' not in session:
         return redirect(url_for('login'))
 
+    # 指定上传文件夹
+    PROFILE_UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads', 'profiles')
+    # 确保目录存在
+    os.makedirs(PROFILE_UPLOAD_FOLDER, exist_ok=True)
+
     # Handle image deletion
     if 'delete_image' in request.form:
         with db.get_cursor() as cursor:
@@ -342,14 +338,16 @@ def update_profile_image():
             if result and result['profile_image']:
                 # Delete the file
                 try:
-                    os.remove(os.path.join(UPLOAD_FOLDER, result['profile_image']))
+                    os.remove(os.path.join(PROFILE_UPLOAD_FOLDER, result['profile_image']))
                 except OSError:
                     pass  # File might not exist
                 
                 # Update database
                 cursor.execute('UPDATE users SET profile_image = NULL WHERE user_id = %s;',
                              (session['user_id'],))
+                db.get_db().commit()
         
+        flash('头像已删除', 'success')
         return redirect(url_for('profile'))
 
     # Handle image upload
@@ -377,7 +375,7 @@ def update_profile_image():
             filename = f"profile_{session['user_id']}_{int(time.time() * 1000)}.{original_extension}"
             
             # 保存处理后的图片
-            image.save(os.path.join(UPLOAD_FOLDER, filename))
+            image.save(os.path.join(PROFILE_UPLOAD_FOLDER, filename))
             
             # 更新数据库
             with db.get_cursor() as cursor:
@@ -387,15 +385,16 @@ def update_profile_image():
                 result = cursor.fetchone()
                 if result and result['profile_image']:
                     try:
-                        os.remove(os.path.join(UPLOAD_FOLDER, result['profile_image']))
+                        os.remove(os.path.join(PROFILE_UPLOAD_FOLDER, result['profile_image']))
                     except OSError:
                         pass
 
                 # Update with new image
                 cursor.execute('UPDATE users SET profile_image = %s WHERE user_id = %s;',
                              (filename, session['user_id']))
+                db.get_db().commit()
 
-            flash('Profile image updated successfully', 'success')
+            flash('头像上传成功', 'success')
             
         except Exception as e:
             flash('Error processing image', 'danger')
@@ -410,7 +409,8 @@ def update_profile_image():
 @app.route('/profile/image/<filename>')
 def get_profile_image(filename):
     """Serve profile images."""
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    profile_upload_folder = os.path.join(app.static_folder, 'uploads', 'profiles')
+    return send_from_directory(profile_upload_folder, filename)
 
 @app.route('/change_password', methods=['POST'])
 def change_password():
@@ -493,8 +493,19 @@ def messages():
 
 @app.route('/me')
 def me():
+    if 'loggedin' not in session:
+        return redirect(url_for('login'))
 
-    return render_template('me.html')
+    with db.get_cursor() as cursor:
+        cursor.execute('''
+            SELECT username, email, first_name, last_name, 
+                   role, status, profile_image, user_id
+            FROM users 
+            WHERE user_id = %s;
+        ''', (session['user_id'],))
+        profile = cursor.fetchone()
+
+    return render_template('me.html', profile=profile)
 
 
 @app.route('/subscription')
@@ -503,57 +514,10 @@ def subscription():
     return render_template('subscription.html')
 
 
-@app.route('/posts')
+@app.route('/list_posts')
 def list_posts():
-    """帖子列表页面 - 小红书风格。"""
-    # 获取第一页数据
-    page = 1
-    per_page = 12  # 每页显示12条帖子
-    
-    with db.get_cursor() as cursor:
-        # 查询帖子基本信息、作者信息和图片数量，修复vote_id可能为NULL的问题
-        cursor.execute('''
-            SELECT 
-                p.post_id, 
-                p.title, 
-                p.content, 
-                p.created_at, 
-                IFNULL(p.vote_id, 0) as vote_id,
-                u.username,
-                u.profile_image,
-                (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
-                (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
-                (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_id = p.vote_id) as likes
-            FROM posts p
-            JOIN users u ON p.user_id = u.user_id
-            ORDER BY p.created_at DESC
-            LIMIT %s OFFSET %s
-        ''', (per_page, (page - 1) * per_page))
-        posts = cursor.fetchall()
-        
-        # 打印帖子数量和第一个帖子的信息，用于调试
-        print(f"获取到 {len(posts)} 条帖子")
-        if posts:
-            print(f"第一个帖子: {posts[0]['title']}, ID: {posts[0]['post_id']}")
-        
-        # 获取总帖子数
-        cursor.execute('SELECT COUNT(*) AS total FROM posts')
-        total_posts = cursor.fetchone()['total']
-        print(f"数据库中共有 {total_posts} 条帖子")
-        
-        # 添加has_vote标志，用于在UI上显示投票标记
-        for post in posts:
-            post['has_vote'] = post['vote_id'] > 0
-            # 确保likes字段不为None
-            if post['likes'] is None:
-                post['likes'] = 0
-    
-    return render_template('list.html', posts=posts, total_posts=total_posts)
-
-@app.route('/api/posts')
-def api_posts():
-    """API接口 - 用于滑动加载更多帖子"""
-    # 获取页码参数
+    """帖子列表API - 返回JSON格式的帖子数据，支持分页。"""
+    # 获取页码和每页显示数量参数
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 12, type=int)
     
@@ -562,7 +526,7 @@ def api_posts():
         per_page = 24
     
     with db.get_cursor() as cursor:
-        # 查询帖子
+        # 查询帖子基本信息、作者信息和图片等
         cursor.execute('''
             SELECT 
                 p.post_id, 
@@ -575,29 +539,54 @@ def api_posts():
                 (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
                 (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
                 (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_id = p.vote_id) as likes
-            FROM posts p
-            JOIN users u ON p.user_id = u.user_id
+            FROM posts p 
+            LEFT JOIN users u ON p.user_id = u.user_id
             ORDER BY p.created_at DESC
             LIMIT %s OFFSET %s
         ''', (per_page, (page - 1) * per_page))
         posts = cursor.fetchall()
         
-        # 添加has_vote标志
+        # 打印帖子数量和第一个帖子的信息，用于调试
+        print(f"获取到 {len(posts)} 条帖子")
+        if posts:
+            print(f"第一个帖子: {posts[0]['content']}, ID: {posts[0]['post_id']}")
+        
+        # 获取总帖子数
+        cursor.execute('SELECT COUNT(*) AS total FROM posts')
+        total_posts = cursor.fetchone()['total']
+        print(f"数据库中共有 {total_posts} 条帖子")
+        
+        # 处理返回的数据，添加额外信息
         for post in posts:
+            # 添加has_vote标志
             post['has_vote'] = post['vote_id'] > 0
+            
             # 确保likes字段不为None
             if post['likes'] is None:
                 post['likes'] = 0
-            
+                
+            # 设置图片URL
+            if post['first_image']:
+                post['image_url'] = url_for('get_post_image', filename=post['first_image'])
+            else:
+                post['image_url'] = url_for('static', filename='img/default-post.jpg')
+                
+            # 设置用户头像URL
+            if post['profile_image']:
+                post['user_avatar'] = url_for('static', filename=f'uploads/profiles/{post["profile_image"]}')
+            else:
+                post['user_avatar'] = url_for('static', filename='img/default-avatar.jpg')
+                
             # 处理日期格式以便JSON序列化
             if 'created_at' in post and post['created_at']:
                 post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
-    # 返回JSON数据
+    # 返回JSON格式响应
     result = {
         'posts': list(posts),
         'page': page,
         'per_page': per_page,
+        'total': total_posts,
         'has_more': len(posts) == per_page  # 如果返回的帖子数等于请求的数量，则可能还有更多
     }
     
