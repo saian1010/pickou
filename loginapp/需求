@@ -1,0 +1,8 @@
+帮我重新写view_post
+1.使用users表查用户头像，昵称
+2.使用posts查询帖子详情
+3.使用votes，vote_options查询投票选项
+4.使用user_votes判断当前登录用户是否已投票，以及投了哪个选项
+5.使用comments查询用户评论
+同时重写post_detail.html
+将上述查出来的数据进行渲染，采用小红书风格

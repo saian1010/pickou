@@ -5,276 +5,238 @@
 {% block content %}
 <div class="container post-detail-container">
     <!-- 返回按钮 -->
-    <div class="back-button mb-3">
-        <a href="{{ url_for('list_posts') }}" class="text-decoration-none">
+    <div class="back-link mb-3 mt-3">
+        <a href="{{ url_for('visitor_home') }}" class="text-decoration-none">
             <i class="bi bi-arrow-left"></i> 返回
         </a>
     </div>
     
-    <!-- 帖子头部：用户信息 -->
-    <div class="post-header mb-3">
-        <div class="d-flex justify-content-between">
+    <!-- 帖子内容卡片 -->
+    <div class="post-card">
+        <!-- 用户信息区域 -->
+        <div class="post-user-info d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex align-items-center">
                 <!-- 用户头像 -->
                 {% if post.profile_image %}
-                    <img src="{{ url_for('get_profile_image', filename=post.profile_image) }}" class="avatar me-2" alt="{{ post.username }}">
+                    <img src="{{ url_for('get_profile_image', filename=post.profile_image) }}" class="user-avatar" alt="{{ post.username }}">
                 {% else %}
-                    <div class="avatar-placeholder me-2">
+                    <div class="user-avatar-placeholder">
                         {{ post.username[0]|upper }}
                     </div>
                 {% endif %}
                 
                 <!-- 用户名 -->
-                <div class="username-container">
+                <div class="ms-2">
                     <div class="username">{{ post.username }}</div>
-                    <small class="text-muted">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    <div class="post-time">{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 </div>
             </div>
             
             <!-- 关注按钮和分享图标 -->
-            <div class="action-buttons">
-                <button class="btn follow-btn">
-                    <i class="bi bi-plus"></i> 关注
-                </button>
+            <div>
+                {% if not is_author and 'loggedin' in session %}
+                    <button class="btn follow-btn">
+                        <i class="bi bi-plus"></i> 关注
+                    </button>
+                {% endif %}
                 <button class="btn share-btn ms-2">
                     <i class="bi bi-share"></i>
                 </button>
             </div>
         </div>
-    </div>
-    
-    <!-- 帖子内容 -->
-    <div class="post-content-container">
-        <!-- 图片区域 -->
-        {% if images %}
-            <div class="post-images mb-4">
-                {% if images|length == 1 %}
-                    <!-- 单张图片 -->
-                    <div class="single-image">
-                        <img src="{{ url_for('get_post_image', filename=images[0].image_path) }}" 
-                             class="img-fluid post-image"
-                             alt="帖子图片"
-                             data-bs-toggle="modal"
-                             data-bs-target="#imageModal"
-                             data-bs-img="{{ url_for('get_post_image', filename=images[0].image_path) }}">
-                    </div>
-                {% else %}
-                    <!-- 多张图片 -->
-                    <div class="image-gallery">
-                        <div class="swiper post-swiper">
-                            <div class="swiper-wrapper">
-                                {% for image in images %}
-                                    <div class="swiper-slide">
-                                        <img src="{{ url_for('get_post_image', filename=image.image_path) }}" 
-                                             class="img-fluid post-image" 
-                                             alt="帖子图片"
-                                             data-bs-toggle="modal"
-                                             data-bs-target="#imageModal"
-                                             data-bs-img="{{ url_for('get_post_image', filename=image.image_path) }}">
+        
+        <!-- 帖子内容区域 -->
+        <div class="post-content">
+            <!-- 图片区域 (如果有图片) -->
+            {% if images %}
+                <div class="post-images mb-4">
+                    {% if images|length == 1 %}
+                        <!-- 单张图片 -->
+                        <div class="single-image">
+                            <img src="{{ url_for('get_post_image', filename=images[0].image_path) }}" 
+                                 class="img-fluid" 
+                                 data-bs-toggle="modal"
+                                 data-bs-target="#imageModal"
+                                 data-bs-img="{{ url_for('get_post_image', filename=images[0].image_path) }}">
+                        </div>
+                    {% else %}
+                        <!-- 多张图片 -->
+                        <div class="images-grid">
+                            <div class="swiper post-swiper">
+                                <div class="swiper-wrapper">
+                                    {% for image in images %}
+                                        <div class="swiper-slide">
+                                            <img src="{{ url_for('get_post_image', filename=image.image_path) }}" 
+                                                 class="img-fluid" 
+                                                 data-bs-toggle="modal"
+                                                 data-bs-target="#imageModal"
+                                                 data-bs-img="{{ url_for('get_post_image', filename=image.image_path) }}">
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="swiper-pagination"></div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+            
+            <!-- 标题和内容 -->
+            <h4 class="post-title mb-3">{{ post.title }}</h4>
+            <div class="post-text whitespace-pre-wrap mb-4">{{ post.content }}</div>
+            
+            <!-- 投票区域 (如果有投票) -->
+            {% if vote_data %}
+                <div class="vote-section mt-4 mb-4">
+                    <h5 class="vote-title mb-3">{{ vote_data.vote.vote_title }}</h5>
+                    
+                    {% if vote_data.options|length == 2 %}
+                        <!-- PK样式投票 (两个选项) -->
+                        <div class="pk-vote-container">
+                            <div class="pk-options-row">
+                                {% for option in vote_data.options %}
+                                    {% set percent = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 50 %}
+                                    <div class="pk-option {% if vote_data.has_voted and option.vote_option_id in vote_data.user_voted_options %}selected{% endif %}"
+                                         data-option-id="{{ option.vote_option_id }}">
+                                        <div class="pk-option-content">
+                                            <div class="pk-option-title">{{ option.title }}</div>
+                                            {% if vote_data.has_voted %}
+                                                <div class="pk-option-percent">{{ percent }}%</div>
+                                                <div class="pk-vote-count">({{ option.vote_count }}票)</div>
+                                            {% endif %}
+                                        </div>
+                                        {% if vote_data.has_voted %}
+                                            <div class="pk-option-bar" style="width: {{ percent }}%"></div>
+                                        {% endif %}
                                     </div>
+                                    
+                                    {% if loop.first %}
+                                        <div class="pk-vs">VS</div>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
-                            <div class="swiper-pagination"></div>
+                            
+                            {% if 'loggedin' in session and not vote_data.has_voted %}
+                                <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post" class="text-center mt-3">
+                                    <input type="hidden" name="option" id="pk-selected-option">
+                                    <button type="submit" class="btn vote-btn" id="pk-vote-btn" disabled>投票</button>
+                                </form>
+                            {% endif %}
                         </div>
-                    </div>
-                {% endif %}
-            </div>
-        {% endif %}
-        
-        <!-- 标题和内容 -->
-        <div class="post-text-content">
-            <h3 class="post-title mb-3">{{ post.title }}</h3>
-            <div class="post-body mb-4">
-                {{ post.content|nl2br }}
-            </div>
-        </div>
-        
-        <!-- 投票区域 -->
-        {% if vote_data %}
-            <div class="vote-container mt-4">
-                <h5 class="vote-title mb-3">{{ vote_data.vote.vote_title }}</h5>
-                
-                {% if vote_data.options|length == 2 %}
-                    <!-- PK样式投票 (仅2个选项) -->
-                    <div class="pk-vote-container {% if vote_data.has_voted %}voted{% endif %}">
-                        <div class="pk-options-container">
-                            {% set option1 = vote_data.options[0] %}
-                            {% set option2 = vote_data.options[1] %}
-                            
-                            {% set percentage1 = ((option1.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
-                            {% set percentage2 = ((option2.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
-                            
-                            <!-- 第一个选项 -->
-                            <div class="pk-option {% if vote_data.has_voted and option1.option_id in vote_data.user_voted_options %}selected{% endif %}"
-                                 data-option-id="{{ option1.option_id }}">
-                                <div class="pk-option-content">
-                                    <div class="pk-option-title">{{ option1.title }}</div>
-                                    {% if vote_data.has_voted %}
-                                        <div class="pk-option-percentage">{{ percentage1 }}%</div>
-                                        <div class="vote-count">({{ option1.vote_count }}票)</div>
-                                    {% endif %}
-                                </div>
-                                <div class="pk-option-overlay" style="width: {{ percentage1 }}%"></div>
-                            </div>
-                            
-                            <!-- PK分隔线 -->
-                            <div class="pk-divider">
-                                <div class="pk-vs">VS</div>
-                            </div>
-                            
-                            <!-- 第二个选项 -->
-                            <div class="pk-option {% if vote_data.has_voted and option2.option_id in vote_data.user_voted_options %}selected{% endif %}"
-                                 data-option-id="{{ option2.option_id }}">
-                                <div class="pk-option-content">
-                                    <div class="pk-option-title">{{ option2.title }}</div>
-                                    {% if vote_data.has_voted %}
-                                        <div class="pk-option-percentage">{{ percentage2 }}%</div>
-                                        <div class="vote-count">({{ option2.vote_count }}票)</div>
-                                    {% endif %}
-                                </div>
-                                <div class="pk-option-overlay" style="width: {{ percentage2 }}%"></div>
-                            </div>
-                        </div>
-                        
-                        {% if 'loggedin' in session and not vote_data.has_voted %}
-                            <form id="pkVoteForm" action="{{ url_for('vote', post_id=post.post_id) }}" method="post" class="mt-3">
-                                <input type="hidden" name="option" id="selectedPkOption" value="">
-                                <button type="submit" class="btn vote-btn" disabled>投票</button>
-                            </form>
-                        {% endif %}
-                    </div>
-                    
-                {% else %}
-                    <!-- 饼图样式投票 (3个或更多选项) -->
-                    <div class="pie-vote-container">
-                        {% if vote_data.has_voted %}
-                            <!-- 已投票状态显示结果 -->
-                            <div class="vote-results">
-                                <div class="row">
-                                    <div class="col-md-5">
-                                        <div class="pie-chart-container">
-                                            <canvas id="voteResultsChart"></canvas>
+                    {% else %}
+                        <!-- 常规样式投票 (三个或更多选项) -->
+                        <div class="normal-vote-container">
+                            {% if vote_data.has_voted %}
+                                <!-- 投票结果 -->
+                                <div class="vote-results">
+                                    {% for option in vote_data.options %}
+                                        {% set percent = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
+                                        <div class="vote-result-item {% if option.vote_option_id in vote_data.user_voted_options %}selected{% endif %}">
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <div class="vote-option-title">{{ option.title }}</div>
+                                                <div class="vote-percent">{{ percent }}% ({{ option.vote_count }}票)</div>
+                                            </div>
+                                            <div class="progress">
+                                                <div class="progress-bar" role="progressbar" style="width: {{ percent }}%"></div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="col-md-7">
-                                        <div class="vote-legend-container">
-                                            {% for option in vote_data.options %}
-                                                {% set percentage = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
-                                                <div class="vote-legend-item {% if option.option_id in vote_data.user_voted_options %}user-selected{% endif %}">
-                                                    <div class="vote-legend-color" style="background-color: {{ ['#FF2442', '#66CCFF', '#FFAA00', '#00CC99', '#9966FF', '#FF6699', '#33CCCC', '#FF9933', '#99CC00', '#CC99FF']|random }}"></div>
-                                                    <div class="vote-legend-text">
-                                                        <div class="d-flex justify-content-between">
-                                                            <div class="vote-option-title">{{ option.title }}</div>
-                                                            <div class="vote-option-percent">{{ percentage }}%</div>
-                                                        </div>
-                                                        <div class="vote-option-count">{{ option.vote_count }}票</div>
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
+                                    {% endfor %}
+                                    <div class="vote-total text-center mt-3">
+                                        <small>共 {{ vote_data.total_votes }} 人参与投票</small>
+                                        {% if 'loggedin' in session %}
+                                            <button class="btn btn-sm revote-btn ms-3" type="button" data-bs-toggle="collapse" data-bs-target="#revoteForm">
+                                                重新投票
+                                            </button>
+                                            
+                                            <div class="collapse mt-3" id="revoteForm">
+                                                <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
+                                                    {% if vote_data.vote.vote_type == 2 %}
+                                                        <!-- 多选 -->
+                                                        {% for option in vote_data.options %}
+                                                            <div class="vote-option mb-2">
+                                                                <input type="checkbox" name="options[]" 
+                                                                    id="revote-option-{{ option.vote_option_id }}" 
+                                                                    value="{{ option.vote_option_id }}"
+                                                                    {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
+                                                                <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <!-- 单选 -->
+                                                        {% for option in vote_data.options %}
+                                                            <div class="vote-option mb-2">
+                                                                <input type="radio" name="option" 
+                                                                    id="revote-option-{{ option.vote_option_id }}" 
+                                                                    value="{{ option.vote_option_id }}"
+                                                                    {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
+                                                                <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% endif %}
+                                                    <button type="submit" class="btn vote-btn mt-2">提交</button>
+                                                </form>
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 </div>
-                                
-                                <div class="text-center mt-3">
-                                    <small class="text-muted">共 {{ vote_data.total_votes }} 人参与投票</small>
-                                    {% if 'loggedin' in session %}
-                                        <button class="btn btn-sm revote-btn ms-3" type="button" data-bs-toggle="collapse" data-bs-target="#revoteForm" aria-expanded="false">
-                                            重新投票
-                                        </button>
-                                        
-                                        <div class="collapse mt-3" id="revoteForm">
-                                            <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
-                                                {% if vote_data.vote.vote_type == 2 %}
-                                                    <!-- 多选重新投票 -->
-                                                    {% for option in vote_data.options %}
-                                                        <div class="vote-option mb-2">
-                                                            <input class="form-check-input" type="checkbox" name="options[]" 
-                                                                id="optionRevote{{ option.option_id }}" value="{{ option.option_id }}"
-                                                                {% if option.option_id in vote_data.user_voted_options %}checked{% endif %}>
-                                                            <label class="form-check-label" for="optionRevote{{ option.option_id }}">
-                                                                {{ option.title }}
-                                                            </label>
-                                                        </div>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <!-- 单选重新投票 -->
-                                                    {% for option in vote_data.options %}
-                                                        <div class="vote-option mb-2">
-                                                            <input class="form-check-input" type="radio" name="option" 
-                                                                id="optionRevote{{ option.option_id }}" value="{{ option.option_id }}"
-                                                                {% if option.option_id in vote_data.user_voted_options %}checked{% endif %}>
-                                                            <label class="form-check-label" for="optionRevote{{ option.option_id }}">
-                                                                {{ option.title }}
-                                                            </label>
-                                                        </div>
-                                                    {% endfor %}
-                                                {% endif %}
-                                                <button type="submit" class="btn vote-btn mt-2">提交</button>
-                                            </form>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                        {% elif 'loggedin' in session %}
-                            <!-- 未投票状态展示选项 -->
-                            <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
-                                <div class="vote-options-list">
+                            {% elif 'loggedin' in session %}
+                                <!-- 投票表单 -->
+                                <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
                                     {% if vote_data.vote.vote_type == 2 %}
-                                        <!-- 多选投票 -->
+                                        <!-- 多选 -->
                                         {% for option in vote_data.options %}
                                             <div class="vote-option mb-2">
-                                                <input class="form-check-input" type="checkbox" name="options[]" id="option{{ option.option_id }}" value="{{ option.option_id }}">
-                                                <label class="form-check-label" for="option{{ option.option_id }}">
-                                                    {{ option.title }}
-                                                </label>
+                                                <input type="checkbox" name="options[]" 
+                                                       id="option-{{ option.vote_option_id }}" 
+                                                       value="{{ option.vote_option_id }}">
+                                                <label for="option-{{ option.vote_option_id }}">{{ option.title }}</label>
                                             </div>
                                         {% endfor %}
-                                        <div class="vote-tip mt-2 mb-3">
+                                        <div class="vote-tip mb-2">
                                             <small class="text-muted"><i class="bi bi-info-circle"></i> 可多选</small>
                                         </div>
                                     {% else %}
-                                        <!-- 单选投票 -->
+                                        <!-- 单选 -->
                                         {% for option in vote_data.options %}
                                             <div class="vote-option mb-2">
-                                                <input class="form-check-input" type="radio" name="option" id="option{{ option.option_id }}" value="{{ option.option_id }}">
-                                                <label class="form-check-label" for="option{{ option.option_id }}">
-                                                    {{ option.title }}
-                                                </label>
+                                                <input type="radio" name="option" 
+                                                       id="option-{{ option.vote_option_id }}" 
+                                                       value="{{ option.vote_option_id }}">
+                                                <label for="option-{{ option.vote_option_id }}">{{ option.title }}</label>
                                             </div>
                                         {% endfor %}
                                     {% endif %}
+                                    <button type="submit" class="btn vote-btn mt-2">投票</button>
+                                </form>
+                            {% else %}
+                                <!-- 未登录提示 -->
+                                <div class="login-to-vote text-center p-3">
+                                    <p>登录后才能参与投票</p>
+                                    <a href="{{ url_for('login') }}" class="btn login-btn">登录</a>
                                 </div>
-                                <button type="submit" class="btn vote-btn mt-2">投票</button>
-                            </form>
-                        {% else %}
-                            <!-- 未登录提示登录 -->
-                            <div class="text-center login-prompt">
-                                <p>登录后才能参与投票</p>
-                                <a href="{{ url_for('login') }}" class="btn login-btn">登录</a>
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endif %}
-            </div>
-        {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
     </div>
     
     <!-- 评论区 -->
-    <div class="comments-section mt-5">
-        <h4 class="comments-title mb-3">评论 <span class="comments-count">{{ comments|length if comments else 0 }}</span></h4>
+    <div class="comments-section mt-4">
+        <h5 class="section-title">评论 <span class="comments-count">{{ comments|length }}</span></h5>
         
-        <!-- 发表评论 -->
+        <!-- 添加评论表单 -->
         {% if 'loggedin' in session %}
             <div class="comment-form mb-4">
-                <form action="{{ url_for('add_comment', post_id=post.post_id) }}" method="post">
+                <form action="{{ url_for('view_post', post_id=post.post_id) }}" method="post">
                     <div class="d-flex">
-                        <!-- 用户头像 -->
-                        {% if current_user_profile and current_user_profile.profile_image %}
-                            <img src="{{ url_for('static', filename='uploads/profiles/' + current_user_profile.profile_image) }}" class="comment-avatar me-2" alt="我的头像">
+                        <!-- 当前用户头像 -->
+                        {% if current_user.profile_image %}
+                            <img src="{{ url_for('get_profile_image', filename=current_user.profile_image) }}" class="comment-avatar" alt="{{ current_user.username }}">
                         {% else %}
-                            <div class="comment-avatar-placeholder me-2">
-                                {{ session.username[0]|upper }}
+                            <div class="comment-avatar-placeholder">
+                                {{ current_user.username[0]|upper }}
                             </div>
                         {% endif %}
                         
@@ -287,7 +249,7 @@
             </div>
         {% else %}
             <div class="login-to-comment mb-4">
-                <a href="{{ url_for('login') }}" class="text-decoration-none">登录后发表评论</a>
+                <a href="{{ url_for('login') }}">登录后发表评论</a>
             </div>
         {% endif %}
         
@@ -299,24 +261,26 @@
                         <div class="d-flex">
                             <!-- 评论者头像 -->
                             {% if comment.profile_image %}
-                                <img src="{{ url_for('get_profile_image', filename=comment.profile_image) }}" class="comment-avatar me-2" alt="{{ comment.username }}">
+                                <img src="{{ url_for('get_profile_image', filename=comment.profile_image) }}" class="comment-avatar" alt="{{ comment.username }}">
                             {% else %}
-                                <div class="comment-avatar-placeholder me-2">
+                                <div class="comment-avatar-placeholder">
                                     {{ comment.username[0]|upper }}
                                 </div>
                             {% endif %}
                             
                             <div class="comment-content">
-                                <div class="comment-username">{{ comment.username }}</div>
-                                <div class="comment-text">{{ comment.content }}</div>
-                                <div class="comment-meta">
+                                <div class="comment-header">
+                                    <span class="comment-username">{{ comment.username }}</span>
                                     <span class="comment-time">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                                    <button class="btn comment-like-btn ms-3" data-comment-id="{{ comment.comment_id }}">
-                                        <i class="bi bi-heart"></i> <span class="like-count">{{ comment.likes|default(0) }}</span>
+                                </div>
+                                <div class="comment-text whitespace-pre-wrap">{{ comment.content }}</div>
+                                <div class="comment-actions">
+                                    <button class="btn comment-like-btn" data-comment-id="{{ comment.comment_id }}">
+                                        <i class="bi bi-heart"></i> <span>{{ comment.likes }}</span>
                                     </button>
                                     
-                                    {% if 'loggedin' in session and session.user_id == comment.user_id %}
-                                        <button class="btn comment-delete-btn ms-2" data-comment-id="{{ comment.comment_id }}">
+                                    {% if 'loggedin' in session and current_user.user_id == comment.user_id %}
+                                        <button class="btn comment-delete-btn" data-comment-id="{{ comment.comment_id }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     {% endif %}
@@ -326,9 +290,11 @@
                     </div>
                 {% endfor %}
             {% else %}
-                <div class="no-comments text-center py-5">
-                    <i class="bi bi-chat-dots empty-comments-icon"></i>
-                    <p>暂无评论，快来抢沙发吧～</p>
+                <div class="no-comments">
+                    <div class="empty-icon">
+                        <i class="bi bi-chat-dots"></i>
+                    </div>
+                    <p>还没有评论，快来抢沙发吧~</p>
                 </div>
             {% endif %}
         </div>
@@ -350,45 +316,44 @@
 </div>
 
 <style>
+    /* 小红书风格样式 */
     :root {
-        --xhs-primary: #FF2442;
-        --xhs-light: #FFF6F7;
-        --xhs-secondary: #FF8196;
+        --xhs-primary: #ff2442;
+        --xhs-light: #fff6f7;
+        --xhs-secondary: #ff8196;
         --xhs-dark: #333333;
         --xhs-gray: #999999;
-        --xhs-light-gray: #F8F8F8;
-        --xhs-border: #EFEFEF;
+        --xhs-light-gray: #f8f8f8;
+        --xhs-border: #efefef;
     }
     
-    /* 帖子详情容器 */
     .post-detail-container {
         max-width: 800px;
-        padding-bottom: 80px;
+        padding-bottom: 50px;
     }
     
-    /* 返回按钮 */
-    .back-button {
-        margin-top: 15px;
-    }
-    
-    .back-button a {
+    .back-link {
         color: var(--xhs-dark);
         font-size: 15px;
     }
     
-    /* 用户信息区域 */
-    .post-header {
-        padding: 15px 0;
+    .post-card {
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        padding: 20px;
+        margin-bottom: 20px;
     }
     
-    .avatar, .avatar-placeholder {
-        width: 42px;
-        height: 42px;
+    /* 用户信息样式 */
+    .user-avatar, .user-avatar-placeholder {
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         object-fit: cover;
     }
     
-    .avatar-placeholder {
+    .user-avatar-placeholder {
         background-color: var(--xhs-light-gray);
         color: var(--xhs-gray);
         display: flex;
@@ -403,124 +368,107 @@
         color: var(--xhs-dark);
     }
     
+    .post-time {
+        font-size: 12px;
+        color: var(--xhs-gray);
+    }
+    
     .follow-btn {
         background-color: var(--xhs-primary);
         color: white;
         border-radius: 20px;
-        font-size: 14px;
-        padding: 5px 15px;
-        border: none;
+        font-size: 13px;
+        padding: 4px 12px;
     }
     
     .follow-btn:hover {
-        background-color: #E61E39;
+        background-color: #e61e39;
         color: white;
     }
     
     .share-btn {
         background-color: var(--xhs-light-gray);
         color: var(--xhs-dark);
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
-        width: 36px;
-        height: 36px;
-        padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        border: none;
+        padding: 0;
     }
     
     .share-btn:hover {
-        background-color: #EBEBEB;
+        background-color: #e8e8e8;
     }
     
-    /* 帖子内容区域 */
-    .post-content-container {
-        background-color: white;
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        overflow: hidden;
-        padding-bottom: 20px;
+    /* 帖子内容样式 */
+    .post-title {
+        font-weight: 600;
+        color: var(--xhs-dark);
+        margin-top: 15px;
     }
     
-    /* 图片区域 */
+    .post-text {
+        font-size: 15px;
+        line-height: 1.7;
+        color: #505050;
+    }
+    
+    .whitespace-pre-wrap {
+        white-space: pre-wrap;
+    }
+    
+    /* 图片样式 */
     .post-images {
-        margin-bottom: 15px;
+        margin: 0 -20px 20px;
     }
     
     .single-image img {
         width: 100%;
-        max-height: 600px;
+        max-height: 500px;
         object-fit: contain;
-        border-top-left-radius: 12px;
-        border-top-right-radius: 12px;
+        cursor: pointer;
     }
     
-    .image-gallery {
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .post-swiper {
+    .swiper {
         width: 100%;
-        height: 450px;
+        height: 400px;
     }
     
     .swiper-slide {
+        text-align: center;
         display: flex;
-        align-items: center;
         justify-content: center;
+        align-items: center;
     }
     
-    .post-image {
-        cursor: pointer;
-        object-fit: contain;
+    .swiper-slide img {
+        max-width: 100%;
         max-height: 100%;
+        object-fit: contain;
+        cursor: pointer;
     }
     
-    /* 标题和内容 */
-    .post-text-content {
-        padding: 0 20px;
-    }
-    
-    .post-title {
-        font-size: 20px;
-        font-weight: 600;
-        color: var(--xhs-dark);
-        line-height: 1.4;
-    }
-    
-    .post-body {
-        font-size: 15px;
-        line-height: 1.8;
-        color: #505050;
-        white-space: pre-line;
-    }
-    
-    /* 投票区域 */
-    .vote-container {
+    /* 投票样式 */
+    .vote-section {
         background-color: var(--xhs-light-gray);
         border-radius: 10px;
         padding: 20px;
-        margin: 0 20px;
     }
     
     .vote-title {
         font-weight: 600;
         font-size: 16px;
-        color: var(--xhs-dark);
+        margin-bottom: 15px;
     }
     
     /* PK投票样式 */
-    .pk-vote-container {
-        position: relative;
-    }
-    
-    .pk-options-container {
+    .pk-options-row {
         display: flex;
         align-items: center;
-        height: 80px;
         position: relative;
+        height: 80px;
     }
     
     .pk-option {
@@ -530,23 +478,27 @@
         border-radius: 8px;
         position: relative;
         overflow: hidden;
-        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: transform 0.2s;
+        cursor: pointer;
+        transition: all 0.2s;
     }
     
     .pk-option:hover {
         transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }
+    
+    .pk-option.selected {
+        border: 2px solid var(--xhs-primary);
     }
     
     .pk-option-content {
-        position: relative;
-        z-index: 2;
         padding: 10px;
         text-align: center;
-        width: 100%;
+        position: relative;
+        z-index: 2;
     }
     
     .pk-option-title {
@@ -555,29 +507,30 @@
         margin-bottom: 5px;
     }
     
-    .pk-option-percentage {
+    .pk-option-percent {
         font-weight: 600;
         font-size: 18px;
         color: var(--xhs-primary);
     }
     
-    .pk-option-overlay {
+    .pk-vote-count {
+        font-size: 12px;
+        color: var(--xhs-gray);
+    }
+    
+    .pk-option-bar {
         position: absolute;
         top: 0;
-        bottom: 0;
         left: 0;
+        height: 100%;
         background-color: rgba(255, 36, 66, 0.1);
         z-index: 1;
-        transition: width 1s ease-in-out;
+        transition: width 1s ease-out;
     }
     
-    .pk-option.selected .pk-option-overlay {
-        background-color: rgba(255, 36, 66, 0.2);
-    }
-    
-    .pk-divider {
-        width: 40px;
-        height: 40px;
+    .pk-vs {
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         background-color: var(--xhs-primary);
         color: white;
@@ -586,131 +539,68 @@
         justify-content: center;
         font-weight: bold;
         z-index: 3;
-        margin: 0 -20px;
+        margin: 0 -18px;
     }
     
-    .vote-count {
-        font-size: 12px;
-        color: var(--xhs-gray);
-    }
-    
-    /* 饼图投票样式 */
-    .pie-chart-container {
-        width: 100%;
-        height: 200px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .vote-legend-container {
-        margin-top: 15px;
-    }
-    
-    .vote-legend-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 12px;
-        padding: 8px;
-        border-radius: 6px;
-        transition: background-color 0.2s;
-    }
-    
-    .vote-legend-item:hover {
-        background-color: rgba(0, 0, 0, 0.03);
-    }
-    
-    .vote-legend-item.user-selected {
-        background-color: rgba(255, 36, 66, 0.05);
-    }
-    
-    .vote-legend-color {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 8px;
-    }
-    
-    .vote-legend-text {
-        flex: 1;
-    }
-    
-    .vote-option-title {
-        font-size: 14px;
-        font-weight: 500;
-    }
-    
-    .vote-option-percent {
-        font-weight: 600;
-        color: var(--xhs-primary);
-    }
-    
-    .vote-option-count {
-        font-size: 12px;
-        color: var(--xhs-gray);
-    }
-    
-    .revote-btn {
-        color: var(--xhs-primary);
-        background-color: transparent;
-        border: 1px solid var(--xhs-primary);
-        border-radius: 15px;
-        font-size: 12px;
-    }
-    
-    .revote-btn:hover {
-        background-color: var(--xhs-light);
-        color: var(--xhs-primary);
-    }
-    
-    /* 投票选项 */
+    /* 常规投票样式 */
     .vote-option {
         background-color: white;
         border-radius: 8px;
         padding: 12px 15px;
         margin-bottom: 10px;
-        transition: all 0.2s;
         cursor: pointer;
+        transition: all 0.2s;
     }
     
     .vote-option:hover {
         background-color: #f5f5f5;
     }
     
-    .vote-option input {
+    .vote-option input[type="radio"],
+    .vote-option input[type="checkbox"] {
         margin-right: 10px;
     }
     
     .vote-option label {
         cursor: pointer;
+        font-size: 15px;
         width: 100%;
     }
     
-    .vote-btn {
+    .vote-result-item {
+        margin-bottom: 15px;
+    }
+    
+    .vote-result-item.selected .vote-option-title {
+        font-weight: 600;
+    }
+    
+    .vote-result-item.selected .progress-bar {
         background-color: var(--xhs-primary);
-        color: white;
-        border: none;
-        border-radius: 20px;
-        padding: 8px 25px;
+    }
+    
+    .vote-option-title {
         font-size: 14px;
     }
     
-    .vote-btn:hover {
-        background-color: #E61E39;
-        color: white;
+    .vote-percent {
+        font-size: 14px;
+        color: var(--xhs-primary);
+        font-weight: 500;
     }
     
-    .vote-btn:disabled {
-        background-color: #FFA8B4;
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e9e9e9;
     }
     
-    .login-prompt {
-        padding: 20px;
-        background-color: white;
-        border-radius: 8px;
+    .progress-bar {
+        background-color: #aaaaaa;
+        transition: width 1s ease-out;
     }
     
-    .login-btn {
+    .vote-btn {
         background-color: var(--xhs-primary);
         color: white;
         border: none;
@@ -719,35 +609,46 @@
         font-size: 14px;
     }
     
-    .login-btn:hover {
-        background-color: #E61E39;
+    .vote-btn:hover {
+        background-color: #e61e39;
         color: white;
     }
     
-    /* 评论区 */
+    .revote-btn {
+        color: var(--xhs-primary);
+        background-color: transparent;
+        border: 1px solid var(--xhs-primary);
+        border-radius: 15px;
+        font-size: 12px;
+        padding: 2px 10px;
+    }
+    
+    .login-btn {
+        background-color: var(--xhs-primary);
+        color: white;
+        border-radius: 20px;
+        font-size: 14px;
+        padding: 5px 20px;
+    }
+    
+    /* 评论区样式 */
     .comments-section {
         background-color: white;
         border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
         padding: 20px;
-        margin-top: 20px;
     }
     
-    .comments-title {
-        font-size: 18px;
+    .section-title {
         font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 20px;
         color: var(--xhs-dark);
     }
     
     .comments-count {
         color: var(--xhs-gray);
         font-weight: normal;
-        font-size: 16px;
-    }
-    
-    /* 评论表单 */
-    .comment-form {
-        margin-bottom: 20px;
     }
     
     .comment-avatar, .comment-avatar-placeholder {
@@ -768,16 +669,119 @@
     
     .comment-input-container {
         flex: 1;
+        margin-left: 10px;
         position: relative;
     }
     
     .comment-input {
-        border-
+        border-radius: 20px;
+        padding-right: 60px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .comment-input:focus {
+        box-shadow: none;
+        border-color: var(--xhs-primary);
+    }
+    
+    .comment-submit-btn {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: var(--xhs-primary);
+        color: white;
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-size: 13px;
+    }
+    
+    .login-to-comment {
+        text-align: center;
+        padding: 15px;
+        background-color: var(--xhs-light-gray);
+        border-radius: 8px;
+    }
+    
+    .login-to-comment a {
+        color: var(--xhs-primary);
+        text-decoration: none;
+    }
+    
+    .comment-item {
+        padding: 15px 0;
+        border-bottom: 1px solid var(--xhs-border);
+    }
+    
+    .comment-item:last-child {
+        border-bottom: none;
+    }
+    
+    .comment-content {
+        flex: 1;
+        margin-left: 10px;
+    }
+    
+    .comment-header {
+        margin-bottom: 5px;
+    }
+    
+    .comment-username {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--xhs-dark);
+    }
+    
+    .comment-time {
+        font-size: 12px;
+        color: var(--xhs-gray);
+        margin-left: 8px;
+    }
+    
+    .comment-text {
+        font-size: 14px;
+        line-height: 1.5;
+        margin-bottom: 8px;
+    }
+    
+    .comment-actions {
+        display: flex;
+        align-items: center;
+    }
+    
+    .comment-like-btn, .comment-delete-btn {
+        background: none;
+        border: none;
+        color: var(--xhs-gray);
+        font-size: 12px;
+        padding: 0;
+        margin-right: 15px;
+    }
+    
+    .comment-like-btn:hover {
+        color: var(--xhs-primary);
+    }
+    
+    .comment-delete-btn:hover {
+        color: #dc3545;
+    }
+    
+    .no-comments {
+        text-align: center;
+        padding: 40px 0;
+        color: var(--xhs-gray);
+    }
+    
+    .empty-icon {
+        font-size: 40px;
+        margin-bottom: 10px;
+        opacity: 0.3;
+    }
 </style>
 
 <script>
-    // 为图片模态框设置点击事件
     document.addEventListener('DOMContentLoaded', function() {
+        // 图片模态框功能
         const imageModal = document.getElementById('imageModal');
         if (imageModal) {
             imageModal.addEventListener('show.bs.modal', function(event) {
@@ -786,6 +790,36 @@
                 document.getElementById('modalImage').src = imgSrc;
             });
         }
+        
+        // 初始化轮播图 (如果有Swiper库)
+        if (typeof Swiper !== 'undefined' && document.querySelector('.post-swiper')) {
+            new Swiper('.post-swiper', {
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true
+                }
+            });
+        }
+        
+        // PK投票选项点击事件
+        const pkOptions = document.querySelectorAll('.pk-option');
+        const pkSelectedOption = document.getElementById('pk-selected-option');
+        const pkVoteBtn = document.getElementById('pk-vote-btn');
+        
+        if (pkOptions.length > 0 && pkSelectedOption && pkVoteBtn) {
+            pkOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // 移除其他选项的选中状态
+                    pkOptions.forEach(opt => opt.classList.remove('active'));
+                    // 添加当前选项的选中状态
+                    this.classList.add('active');
+                    // 设置选中的选项ID
+                    pkSelectedOption.value = this.getAttribute('data-option-id');
+                    // 启用投票按钮
+                    pkVoteBtn.disabled = false;
+                });
+            });
+        }
     });
 </script>
-{% endblock %} 
+{% endblock %}

@@ -596,13 +596,13 @@ def list_posts():
 @app.route('/view_post/<int:post_id>')
 def view_post(post_id):
     """帖子详情页面。"""
-    # 不再需要登录验证，任何人都可以查看帖子详情
-    
+    # 获取帖子详情和相关数据
     with db.get_cursor() as cursor:
-        # 获取帖子基本信息
+        # 1. 获取帖子基本信息和作者信息
         cursor.execute('''
-            SELECT p.post_id, p.title, p.content, p.created_at, p.vote_id,
-                   u.username, u.profile_image
+            SELECT 
+                p.post_id, p.title, p.content, p.created_at, p.vote_id,
+                u.user_id as author_id, u.username, u.profile_image
             FROM posts p
             JOIN users u ON p.user_id = u.user_id
             WHERE p.post_id = %s
@@ -613,61 +613,114 @@ def view_post(post_id):
             flash('帖子不存在', 'danger')
             return redirect(url_for('list_posts'))
         
-        # 获取帖子图片
+        # 2. 获取帖子图片
         cursor.execute('''
-            SELECT image_path
+            SELECT image_id, image_path
             FROM post_images
             WHERE post_id = %s
             ORDER BY created_at
         ''', (post_id,))
         images = cursor.fetchall()
         
-        # 获取投票数据
+        # 3. 获取投票信息
         vote_data = None
-        if post['vote_id'] > 0:
+        if post.get('vote_id'):
             cursor.execute('''
-                SELECT v.vote_id, v.title as vote_title, v.vote_type
-                FROM votes v
-                WHERE v.vote_id = %s
+                SELECT vote_id, title as vote_title, vote_type
+                FROM votes
+                WHERE vote_id = %s
             ''', (post['vote_id'],))
             vote = cursor.fetchone()
             
             if vote:
-                # 获取投票选项，并计算每个选项的票数
+                # 获取投票选项
                 cursor.execute('''
-                    SELECT vo.option_id, vo.title,
-                           (SELECT COUNT(*) FROM user_votes uv WHERE uv.option_id = vo.option_id) as vote_count
-                    FROM vote_options vo
-                    WHERE vo.vote_id = %s
-                    ORDER BY vo.created_at
+                    SELECT vote_option_id, title
+                    FROM vote_options
+                    WHERE vote_id = %s
+                    ORDER BY created_at
                 ''', (vote['vote_id'],))
                 options = cursor.fetchall()
                 
-                # 计算总票数
-                total_votes = 0
+                # 获取每个选项的投票数
                 for option in options:
-                    total_votes += option['vote_count']
+                    cursor.execute('''
+                        SELECT COUNT(*) as vote_count
+                        FROM user_votes
+                        WHERE vote_option_id = %s
+                    ''', (option['vote_option_id'],))
+                    count_result = cursor.fetchone()
+                    option['vote_count'] = count_result['vote_count'] if count_result else 0
+                
+                # 计算总投票数
+                total_votes = sum(option['vote_count'] for option in options)
                 
                 # 检查当前用户是否已投票
                 user_voted_options = []
+                has_voted = False
                 if 'loggedin' in session:
                     cursor.execute('''
-                        SELECT option_id
+                        SELECT vote_option_id
                         FROM user_votes
                         WHERE user_id = %s AND vote_id = %s
                     ''', (session['user_id'], vote['vote_id']))
-                    user_votes = cursor.fetchall()
-                    user_voted_options = [vote['option_id'] for vote in user_votes] if user_votes else []
+                    voted_results = cursor.fetchall()
+                    if voted_results:
+                        has_voted = True
+                        user_voted_options = [v['vote_option_id'] for v in voted_results]
                 
                 vote_data = {
                     'vote': vote,
                     'options': options,
                     'total_votes': total_votes,
-                    'user_voted_options': user_voted_options,
-                    'has_voted': len(user_voted_options) > 0
+                    'has_voted': has_voted,
+                    'user_voted_options': user_voted_options
                 }
+        
+        # 4. 获取评论列表
+        cursor.execute('''
+            SELECT 
+                c.comment_id, c.content, c.created_at,
+                u.user_id, u.username, u.profile_image
+            FROM comments c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.post_id = %s
+            ORDER BY c.created_at DESC
+        ''', (post_id,))
+        comments = cursor.fetchall()
+        
+        # 5. 为每条评论添加点赞数
+        for comment in comments:
+            cursor.execute('''
+                SELECT COUNT(*) as like_count
+                FROM likes
+                WHERE comment_id = %s
+            ''', (comment['comment_id'],))
+            like_result = cursor.fetchone()
+            comment['likes'] = like_result['like_count'] if like_result else 0
+        
+        # 6. 获取当前用户信息（用于评论区显示）
+        current_user = None
+        if 'loggedin' in session:
+            cursor.execute('''
+                SELECT user_id, username, profile_image
+                FROM users
+                WHERE user_id = %s
+            ''', (session['user_id'],))
+            current_user = cursor.fetchone()
+            
+            # 检查当前用户是否是帖子作者
+            is_author = (current_user['user_id'] == post['author_id']) if current_user else False
+        else:
+            is_author = False
     
-    return render_template('post_detail.html', post=post, images=images, vote_data=vote_data)
+    return render_template('post_detail.html',
+                          post=post,
+                          images=images,
+                          vote_data=vote_data,
+                          comments=comments,
+                          current_user=current_user,
+                          is_author=is_author)
 
 @app.route('/posts/image/<filename>')
 def get_post_image(filename):

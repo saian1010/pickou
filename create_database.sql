@@ -94,6 +94,16 @@ CREATE TABLE likes (
 );
 
 
+-- likes
+CREATE TABLE follows (
+                          follow_id BIGINT NOT NULL AUTO_INCREMENT,
+                          user_id BIGINT NOT NULL,
+                          follower_id BIGINT NOT NULL,
+                          created_at TIMESTAMP NOT NULL Default CURRENT_TIMESTAMP,
+                          updated_at TIMESTAMP NOT NULL Default CURRENT_TIMESTAMP,
+                          PRIMARY KEY (follow_id)
+);
+
 CREATE TABLE `post_images` (
   `image_id` int(11) NOT NULL AUTO_INCREMENT,
   `post_id` int(11) NOT NULL,
