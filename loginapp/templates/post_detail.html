@@ -35,8 +35,12 @@
             <!-- 关注按钮和分享图标 -->
             <div>
                 {% if not is_author and 'loggedin' in session %}
-                    <button class="btn follow-btn">
-                        <i class="bi bi-plus"></i> 关注
+                    <button class="btn follow-btn {% if is_following %}followed{% endif %}" data-user-id="{{ post.author_id }}">
+                        {% if is_following %}
+                            <i class="bi bi-check"></i> 已关注
+                        {% else %}
+                            <i class="bi bi-plus"></i> 关注
+                        {% endif %}
                     </button>
                 {% endif %}
                 <button class="btn share-btn ms-2">
@@ -787,6 +791,26 @@
         margin-bottom: 10px;
         opacity: 0.3;
     }
+    
+    /* 添加到现有的样式部分 */
+    .follow-btn.followed {
+        background-color: #e0e0e0;
+        color: #333333;
+    }
+    
+    .follow-btn.followed:hover {
+        background-color: #ff6b6b;
+        color: white;
+    }
+    
+    .follow-btn.followed:hover:before {
+        display: inline;
+    }
+    
+    .follow-btn.followed:hover i,
+    .follow-btn.followed:hover span {
+        display: none;
+    }
 </style>
 
 <script>
@@ -956,6 +980,49 @@
                     showAlert('vote-alert', '投票失败，请稍后重试', 'danger');
                     this.disabled = false;
                     this.textContent = '投票';
+                });
+            });
+        }
+        
+        // 关注/取消关注功能
+        const followBtn = document.querySelector('.follow-btn');
+        
+        if (followBtn) {
+            followBtn.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                const formData = new FormData();
+                formData.append('user_id', userId);
+                
+                // 禁用按钮，防止重复点击
+                this.disabled = true;
+                
+                fetch('/api/follow', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 更新按钮文本和样式
+                        if (data.data.is_following) {
+                            this.innerHTML = '<i class="bi bi-check"></i> 已关注';
+                            this.classList.add('followed');
+                        } else {
+                            this.innerHTML = '<i class="bi bi-plus"></i> 关注';
+                            this.classList.remove('followed');
+                        }
+                        
+                        // 显示成功消息
+                        showAlert('vote-alert', data.message, 'success');
+                    } else {
+                        showAlert('vote-alert', data.message, 'danger');
+                    }
+                    this.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('vote-alert', '操作失败，请稍后重试', 'danger');
+                    this.disabled = false;
                 });
             });
         }

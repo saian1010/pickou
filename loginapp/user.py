@@ -597,9 +597,8 @@ def list_posts():
 @app.route('/view_post/<int:post_id>')
 def view_post(post_id):
     """帖子详情页面。"""
-    # 获取帖子详情和相关数据
     with db.get_cursor() as cursor:
-        # 1. 获取帖子基本信息和作者信息
+        # 获取帖子基本信息和作者信息
         cursor.execute('''
             SELECT 
                 p.post_id, p.title, p.content, p.created_at, p.vote_id,
@@ -614,7 +613,21 @@ def view_post(post_id):
             flash('帖子不存在', 'danger')
             return redirect(url_for('list_posts'))
         
-        # 2. 获取帖子图片
+        # 检查当前用户是否已关注作者
+        is_following = False
+        is_author = False
+        if 'loggedin' in session:
+            current_user_id = session['user_id']
+            is_author = (current_user_id == post['author_id'])
+            
+            if not is_author:
+                cursor.execute('''
+                    SELECT 1 FROM follows 
+                    WHERE follower_id = %s AND user_id = %s
+                ''', (current_user_id, post['author_id']))
+                is_following = cursor.fetchone() is not None
+        
+        # 获取其他必要数据（图片、投票、评论等）
         cursor.execute('''
             SELECT image_id, image_path
             FROM post_images
@@ -721,7 +734,8 @@ def view_post(post_id):
                           vote_data=vote_data,
                           comments=comments,
                           current_user=current_user,
-                          is_author=is_author)
+                          is_author=is_author,
+                          is_following=is_following)
 
 @app.route('/posts/image/<filename>')
 def get_post_image(filename):
@@ -1249,3 +1263,258 @@ def delete_comment():
     except Exception as e:
         print(f"删除评论失败: {str(e)}")
         return jsonify({'success': False, 'message': '删除失败，请稍后重试'}), 500
+
+# 关注/取消关注接口
+@app.route('/api/follow', methods=['POST'])
+def api_follow():
+    """处理关注/取消关注的API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    follower_id = session['user_id']  # 当前登录用户ID（关注者）
+    user_id = request.form.get('user_id')  # 被关注用户ID
+    
+    if not user_id:
+        return jsonify({'success': False, 'message': '参数错误'}), 400
+    
+    # 不能关注自己
+    if str(follower_id) == str(user_id):
+        return jsonify({'success': False, 'message': '不能关注自己'}), 400
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 查询是否已关注
+            cursor.execute('''
+                SELECT 1 FROM follows
+                WHERE follower_id = %s AND user_id = %s
+            ''', (follower_id, user_id))
+            already_followed = cursor.fetchone() is not None
+            
+            if already_followed:
+                # 已关注则取消关注
+                cursor.execute('''
+                    DELETE FROM follows
+                    WHERE follower_id = %s AND user_id = %s
+                ''', (follower_id, user_id))
+                is_following = False
+                message = '已取消关注'
+            else:
+                # 未关注则添加关注
+                cursor.execute('''
+                    INSERT INTO follows (user_id, follower_id, created_at, updated_at)
+                    VALUES (%s, %s, NOW(), NOW())
+                ''', (user_id, follower_id))
+                is_following = True
+                message = '关注成功'
+            
+            db.get_db().commit()
+            
+            # 获取被关注用户的粉丝数
+            cursor.execute('''
+                SELECT COUNT(*) as followers_count 
+                FROM follows 
+                WHERE user_id = %s
+            ''', (user_id,))
+            result = cursor.fetchone()
+            followers_count = result['followers_count'] if result else 0
+            
+            return jsonify({
+                'success': True,
+                'message': message,
+                'data': {
+                    'is_following': is_following,
+                    'followers_count': followers_count,
+                    'user_id': user_id
+                }
+            })
+            
+    except Exception as e:
+        print(f"关注操作失败: {str(e)}")
+        return jsonify({'success': False, 'message': '操作失败，请稍后重试'}), 500
+
+# 获取用户关注的人列表接口
+@app.route('/api/following', methods=['GET'])
+def api_get_following():
+    """获取当前用户关注的人列表API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    follower_id = session['user_id']
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    offset = (page - 1) * per_page
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 获取关注列表总数
+            cursor.execute('''
+                SELECT COUNT(*) as total_count
+                FROM follows
+                WHERE follower_id = %s
+            ''', (follower_id,))
+            result = cursor.fetchone()
+            total_count = result['total_count'] if result else 0
+            
+            # 获取关注的用户列表
+            cursor.execute('''
+                SELECT u.user_id, u.username, u.profile_image, f.created_at as followed_at
+                FROM follows f
+                JOIN users u ON f.user_id = u.user_id
+                WHERE f.follower_id = %s
+                ORDER BY f.created_at DESC
+                LIMIT %s OFFSET %s
+            ''', (follower_id, per_page, offset))
+            following = cursor.fetchall()
+            
+            # 格式化数据
+            following_list = []
+            for follow in following:
+                following_list.append({
+                    'user_id': follow['user_id'],
+                    'username': follow['username'],
+                    'profile_image': follow['profile_image'],
+                    'followed_at': follow['followed_at'].strftime('%Y-%m-%d %H:%M')
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'following': following_list,
+                    'total_count': total_count,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': (total_count + per_page - 1) // per_page
+                }
+            })
+            
+    except Exception as e:
+        print(f"获取关注列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
+
+# 获取粉丝列表接口
+@app.route('/api/followers', methods=['GET'])
+def api_get_followers():
+    """获取当前用户的粉丝列表API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    user_id = session['user_id']
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    offset = (page - 1) * per_page
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 获取粉丝列表总数
+            cursor.execute('''
+                SELECT COUNT(*) as total_count
+                FROM follows
+                WHERE user_id = %s
+            ''', (user_id,))
+            result = cursor.fetchone()
+            total_count = result['total_count'] if result else 0
+            
+            # 获取粉丝用户列表，并检查当前用户是否也关注了这些粉丝
+            cursor.execute('''
+                SELECT 
+                    u.user_id, u.username, u.profile_image, f.created_at as followed_at,
+                    (SELECT 1 FROM follows WHERE follower_id = %s AND user_id = u.user_id) as is_following_back
+                FROM follows f
+                JOIN users u ON f.follower_id = u.user_id
+                WHERE f.user_id = %s
+                ORDER BY f.created_at DESC
+                LIMIT %s OFFSET %s
+            ''', (user_id, user_id, per_page, offset))
+            followers = cursor.fetchall()
+            
+            # 格式化数据
+            followers_list = []
+            for follower in followers:
+                followers_list.append({
+                    'user_id': follower['user_id'],
+                    'username': follower['username'],
+                    'profile_image': follower['profile_image'],
+                    'followed_at': follower['followed_at'].strftime('%Y-%m-%d %H:%M'),
+                    'is_following_back': follower['is_following_back'] is not None
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'followers': followers_list,
+                    'total_count': total_count,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_pages': (total_count + per_page - 1) // per_page
+                }
+            })
+            
+    except Exception as e:
+        print(f"获取粉丝列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
+
+# 检查是否关注接口
+@app.route('/api/check_follow/<int:target_user_id>', methods=['GET'])
+def api_check_follow(target_user_id):
+    """检查当前用户是否关注指定用户的API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    follower_id = session['user_id']
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 查询是否已关注
+            cursor.execute('''
+                SELECT 1 FROM follows
+                WHERE follower_id = %s AND user_id = %s
+            ''', (follower_id, target_user_id))
+            is_following = cursor.fetchone() is not None
+            
+            # 获取目标用户的粉丝数
+            cursor.execute('''
+                SELECT COUNT(*) as followers_count 
+                FROM follows 
+                WHERE user_id = %s
+            ''', (target_user_id,))
+            result = cursor.fetchone()
+            followers_count = result['followers_count'] if result else 0
+            
+            # 获取目标用户的关注数
+            cursor.execute('''
+                SELECT COUNT(*) as following_count 
+                FROM follows 
+                WHERE follower_id = %s
+            ''', (target_user_id,))
+            result = cursor.fetchone()
+            following_count = result['following_count'] if result else 0
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'is_following': is_following,
+                    'followers_count': followers_count,
+                    'following_count': following_count,
+                    'user_id': target_user_id
+                }
+            })
+            
+    except Exception as e:
+        print(f"检查关注状态失败: {str(e)}")
+        return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
