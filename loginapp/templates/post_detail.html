@@ -89,6 +89,10 @@
             {% if vote_data %}
                 <div class="vote-section mt-4 mb-4">
                     <h5 class="vote-title mb-3">{{ vote_data.vote.vote_title }}</h5>
+                    <div id="vote-alert" class="alert alert-dismissible fade" role="alert" style="display: none;">
+                        <span id="vote-alert-message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                     
                     {% if vote_data.options|length == 2 %}
                         <!-- PK样式投票 (两个选项) -->
@@ -100,14 +104,14 @@
                                          data-option-id="{{ option.vote_option_id }}">
                                         <div class="pk-option-content">
                                             <div class="pk-option-title">{{ option.title }}</div>
-                                            {% if vote_data.has_voted %}
-                                                <div class="pk-option-percent">{{ percent }}%</div>
-                                                <div class="pk-vote-count">({{ option.vote_count }}票)</div>
-                                            {% endif %}
+                                            <div class="pk-option-percent" {% if not vote_data.has_voted %}style="display:none"{% endif %}>
+                                                {{ percent }}%
+                                            </div>
+                                            <div class="pk-vote-count" {% if not vote_data.has_voted %}style="display:none"{% endif %}>
+                                                ({{ option.vote_count }}票)
+                                            </div>
                                         </div>
-                                        {% if vote_data.has_voted %}
-                                            <div class="pk-option-bar" style="width: {{ percent }}%"></div>
-                                        {% endif %}
+                                        <div class="pk-option-bar" style="width: {{ percent if vote_data.has_voted else 0 }}%"></div>
                                     </div>
                                     
                                     {% if loop.first %}
@@ -117,98 +121,99 @@
                             </div>
                             
                             {% if 'loggedin' in session and not vote_data.has_voted %}
-                                <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post" class="text-center mt-3">
+                                <form id="pkVoteForm" class="text-center mt-3">
                                     <input type="hidden" name="option" id="pk-selected-option">
-                                    <button type="submit" class="btn vote-btn" id="pk-vote-btn" disabled>投票</button>
+                                    <input type="hidden" name="post_id" value="{{ post.post_id }}">
+                                    <button type="button" class="btn vote-btn" id="pk-vote-btn" disabled>投票</button>
                                 </form>
                             {% endif %}
                         </div>
                     {% else %}
                         <!-- 常规样式投票 (三个或更多选项) -->
                         <div class="normal-vote-container">
-                            {% if vote_data.has_voted %}
-                                <!-- 投票结果 -->
-                                <div class="vote-results">
+                            <div id="vote-results" class="vote-results" {% if not vote_data.has_voted %}style="display:none"{% endif %}>
+                                {% for option in vote_data.options %}
+                                    {% set percent = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
+                                    <div class="vote-result-item {% if option.vote_option_id in vote_data.user_voted_options %}selected{% endif %}">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <div class="vote-option-title">{{ option.title }}</div>
+                                            <div class="vote-percent">{{ percent }}% ({{ option.vote_count }}票)</div>
+                                        </div>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ percent }}%"></div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                <div class="vote-total text-center mt-3">
+                                    <small>共 <span id="total-vote-count">{{ vote_data.total_votes }}</span> 人参与投票</small>
+                                    {% if 'loggedin' in session %}
+                                        <button class="btn btn-sm revote-btn ms-3" type="button" data-bs-toggle="collapse" data-bs-target="#revoteForm">
+                                            重新投票
+                                        </button>
+                                        
+                                        <div class="collapse mt-3" id="revoteForm">
+                                            <form id="revoteForm" class="revote-form">
+                                                <input type="hidden" name="post_id" value="{{ post.post_id }}">
+                                                {% if vote_data.vote.vote_type == 2 %}
+                                                    <!-- 多选 -->
+                                                    {% for option in vote_data.options %}
+                                                        <div class="vote-option mb-2">
+                                                            <input type="checkbox" name="options[]" 
+                                                                id="revote-option-{{ option.vote_option_id }}" 
+                                                                value="{{ option.vote_option_id }}"
+                                                                {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
+                                                            <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
+                                                        </div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <!-- 单选 -->
+                                                    {% for option in vote_data.options %}
+                                                        <div class="vote-option mb-2">
+                                                            <input type="radio" name="option" 
+                                                                id="revote-option-{{ option.vote_option_id }}" 
+                                                                value="{{ option.vote_option_id }}"
+                                                                {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
+                                                            <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
+                                                        </div>
+                                                    {% endfor %}
+                                                {% endif %}
+                                                <button type="button" class="btn vote-btn mt-2 submit-revote-btn">提交</button>
+                                            </form>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <form id="normalVoteForm" class="normal-vote-form" {% if vote_data.has_voted %}style="display:none"{% endif %}>
+                                <input type="hidden" name="post_id" value="{{ post.post_id }}">
+                                {% if vote_data.vote.vote_type == 2 %}
+                                    <!-- 多选 -->
                                     {% for option in vote_data.options %}
-                                        {% set percent = ((option.vote_count / vote_data.total_votes) * 100)|int if vote_data.total_votes > 0 else 0 %}
-                                        <div class="vote-result-item {% if option.vote_option_id in vote_data.user_voted_options %}selected{% endif %}">
-                                            <div class="d-flex justify-content-between mb-1">
-                                                <div class="vote-option-title">{{ option.title }}</div>
-                                                <div class="vote-percent">{{ percent }}% ({{ option.vote_count }}票)</div>
-                                            </div>
-                                            <div class="progress">
-                                                <div class="progress-bar" role="progressbar" style="width: {{ percent }}%"></div>
-                                            </div>
+                                        <div class="vote-option mb-2">
+                                            <input type="checkbox" name="options[]" 
+                                               id="option-{{ option.vote_option_id }}" 
+                                               value="{{ option.vote_option_id }}">
+                                            <label for="option-{{ option.vote_option_id }}">{{ option.title }}</label>
                                         </div>
                                     {% endfor %}
-                                    <div class="vote-total text-center mt-3">
-                                        <small>共 {{ vote_data.total_votes }} 人参与投票</small>
-                                        {% if 'loggedin' in session %}
-                                            <button class="btn btn-sm revote-btn ms-3" type="button" data-bs-toggle="collapse" data-bs-target="#revoteForm">
-                                                重新投票
-                                            </button>
-                                            
-                                            <div class="collapse mt-3" id="revoteForm">
-                                                <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
-                                                    {% if vote_data.vote.vote_type == 2 %}
-                                                        <!-- 多选 -->
-                                                        {% for option in vote_data.options %}
-                                                            <div class="vote-option mb-2">
-                                                                <input type="checkbox" name="options[]" 
-                                                                    id="revote-option-{{ option.vote_option_id }}" 
-                                                                    value="{{ option.vote_option_id }}"
-                                                                    {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
-                                                                <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
-                                                            </div>
-                                                        {% endfor %}
-                                                    {% else %}
-                                                        <!-- 单选 -->
-                                                        {% for option in vote_data.options %}
-                                                            <div class="vote-option mb-2">
-                                                                <input type="radio" name="option" 
-                                                                    id="revote-option-{{ option.vote_option_id }}" 
-                                                                    value="{{ option.vote_option_id }}"
-                                                                    {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
-                                                                <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
-                                                            </div>
-                                                        {% endfor %}
-                                                    {% endif %}
-                                                    <button type="submit" class="btn vote-btn mt-2">提交</button>
-                                                </form>
-                                            </div>
-                                        {% endif %}
+                                    <div class="vote-tip mb-2">
+                                        <small class="text-muted"><i class="bi bi-info-circle"></i> 可多选</small>
                                     </div>
-                                </div>
-                            {% elif 'loggedin' in session %}
-                                <!-- 投票表单 -->
-                                <form action="{{ url_for('vote', post_id=post.post_id) }}" method="post">
-                                    {% if vote_data.vote.vote_type == 2 %}
-                                        <!-- 多选 -->
-                                        {% for option in vote_data.options %}
-                                            <div class="vote-option mb-2">
-                                                <input type="checkbox" name="options[]" 
-                                                       id="option-{{ option.vote_option_id }}" 
-                                                       value="{{ option.vote_option_id }}">
-                                                <label for="option-{{ option.vote_option_id }}">{{ option.title }}</label>
-                                            </div>
-                                        {% endfor %}
-                                        <div class="vote-tip mb-2">
-                                            <small class="text-muted"><i class="bi bi-info-circle"></i> 可多选</small>
+                                {% else %}
+                                    <!-- 单选 -->
+                                    {% for option in vote_data.options %}
+                                        <div class="vote-option mb-2">
+                                            <input type="radio" name="option" 
+                                               id="option-{{ option.vote_option_id }}" 
+                                               value="{{ option.vote_option_id }}">
+                                            <label for="option-{{ option.vote_option_id }}">{{ option.title }}</label>
                                         </div>
-                                    {% else %}
-                                        <!-- 单选 -->
-                                        {% for option in vote_data.options %}
-                                            <div class="vote-option mb-2">
-                                                <input type="radio" name="option" 
-                                                       id="option-{{ option.vote_option_id }}" 
-                                                       value="{{ option.vote_option_id }}">
-                                                <label for="option-{{ option.vote_option_id }}">{{ option.title }}</label>
-                                            </div>
-                                        {% endfor %}
-                                    {% endif %}
-                                    <button type="submit" class="btn vote-btn mt-2">投票</button>
-                                </form>
-                            {% else %}
+                                    {% endfor %}
+                                {% endif %}
+                                <button type="button" class="btn vote-btn mt-2 submit-normal-vote-btn">投票</button>
+                            </form>
+                            
+                            {% if 'loggedin' not in session %}
                                 <!-- 未登录提示 -->
                                 <div class="login-to-vote text-center p-3">
                                     <p>登录后才能参与投票</p>
@@ -229,7 +234,7 @@
         <!-- 添加评论表单 -->
         {% if 'loggedin' in session %}
             <div class="comment-form mb-4">
-                <form action="{{ url_for('view_post', post_id=post.post_id) }}" method="post">
+                <form id="commentForm">
                     <div class="d-flex">
                         <!-- 当前用户头像 -->
                         {% if current_user.profile_image %}
@@ -242,10 +247,15 @@
                         
                         <div class="comment-input-container">
                             <input type="text" name="content" class="form-control comment-input" placeholder="写下你的评论..." required>
-                            <button type="submit" class="btn comment-submit-btn">发送</button>
+                            <input type="hidden" name="post_id" value="{{ post.post_id }}">
+                            <button type="button" class="btn comment-submit-btn" id="submitComment">发送</button>
                         </div>
                     </div>
                 </form>
+                <div id="commentAlert" class="alert alert-dismissible fade mt-2" role="alert" style="display: none;">
+                    <span id="comment-alert-message"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
             </div>
         {% else %}
             <div class="login-to-comment mb-4">
@@ -254,10 +264,10 @@
         {% endif %}
         
         <!-- 评论列表 -->
-        <div class="comments-list">
+        <div class="comments-list" id="commentsContainer">
             {% if comments %}
                 {% for comment in comments %}
-                    <div class="comment-item">
+                    <div class="comment-item" id="comment-{{ comment.comment_id }}">
                         <div class="d-flex">
                             <!-- 评论者头像 -->
                             {% if comment.profile_image %}
@@ -275,12 +285,12 @@
                                 </div>
                                 <div class="comment-text whitespace-pre-wrap">{{ comment.content }}</div>
                                 <div class="comment-actions">
-                                    <button class="btn comment-like-btn" data-comment-id="{{ comment.comment_id }}">
-                                        <i class="bi bi-heart"></i> <span>{{ comment.likes }}</span>
+                                    <button class="btn comment-like-btn like-comment-btn" data-comment-id="{{ comment.comment_id }}">
+                                        <i class="bi bi-heart"></i> <span class="like-count">{{ comment.likes }}</span>
                                     </button>
                                     
                                     {% if 'loggedin' in session and current_user.user_id == comment.user_id %}
-                                        <button class="btn comment-delete-btn" data-comment-id="{{ comment.comment_id }}">
+                                        <button class="btn comment-delete-btn delete-comment-btn" data-comment-id="{{ comment.comment_id }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     {% endif %}
@@ -290,7 +300,7 @@
                     </div>
                 {% endfor %}
             {% else %}
-                <div class="no-comments">
+                <div class="no-comments" id="noCommentsMessage">
                     <div class="empty-icon">
                         <i class="bi bi-chat-dots"></i>
                     </div>
@@ -801,12 +811,33 @@
             });
         }
         
-        // PK投票选项点击事件
+        // 显示提示信息
+        function showAlert(elementId, message, type = 'success') {
+            const alertEl = document.getElementById(elementId);
+            const messageEl = alertEl.querySelector('span');
+            
+            alertEl.classList.remove('alert-success', 'alert-danger', 'alert-warning');
+            alertEl.classList.add(`alert-${type}`);
+            alertEl.classList.add('show');
+            messageEl.textContent = message;
+            alertEl.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alertEl.classList.remove('show');
+                setTimeout(() => {
+                    alertEl.style.display = 'none';
+                }, 300);
+            }, 3000);
+        }
+        
+        // ============ PK 投票功能 ============
         const pkOptions = document.querySelectorAll('.pk-option');
         const pkSelectedOption = document.getElementById('pk-selected-option');
         const pkVoteBtn = document.getElementById('pk-vote-btn');
         
         if (pkOptions.length > 0 && pkSelectedOption && pkVoteBtn) {
+            // PK选项点击事件
             pkOptions.forEach(option => {
                 option.addEventListener('click', function() {
                     // 移除其他选项的选中状态
@@ -817,6 +848,114 @@
                     pkSelectedOption.value = this.getAttribute('data-option-id');
                     // 启用投票按钮
                     pkVoteBtn.disabled = false;
+                });
+            });
+            
+            // PK投票提交
+            pkVoteBtn && pkVoteBtn.addEventListener('click', function() {
+                const formData = new FormData(document.getElementById('pkVoteForm'));
+                
+                // 禁用按钮，防止重复提交
+                this.disabled = true;
+                this.textContent = '提交中...';
+                
+                fetch('/api/vote', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('vote-alert', data.message, 'success');
+                        
+                        // 更新投票结果UI
+                        const options = data.data.options;
+                        const totalVotes = data.data.total_votes;
+                        const userVoted = data.data.user_voted_options;
+                        
+                        // 显示百分比和票数
+                        pkOptions.forEach((optionEl, index) => {
+                            const option = options[index];
+                            const optionId = parseInt(optionEl.getAttribute('data-option-id'));
+                            const isSelected = userVoted.includes(optionId);
+                            
+                            // 更新选中状态
+                            if (isSelected) {
+                                optionEl.classList.add('selected');
+                            }
+                            
+                            // 更新百分比和票数
+                            const percentEl = optionEl.querySelector('.pk-option-percent');
+                            const countEl = optionEl.querySelector('.pk-vote-count');
+                            const barEl = optionEl.querySelector('.pk-option-bar');
+                            
+                            percentEl.textContent = `${option.percent}%`;
+                            countEl.textContent = `(${option.vote_count}票)`;
+                            percentEl.style.display = 'block';
+                            countEl.style.display = 'block';
+                            
+                            // 动画显示进度条
+                            setTimeout(() => {
+                                barEl.style.width = `${option.percent}%`;
+                            }, 100);
+                        });
+                        
+                        // 隐藏投票按钮
+                        pkVoteBtn.style.display = 'none';
+                    } else {
+                        showAlert('vote-alert', data.message, 'danger');
+                        this.disabled = false;
+                        this.textContent = '投票';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('vote-alert', '投票失败，请稍后重试', 'danger');
+                    this.disabled = false;
+                    this.textContent = '投票';
+                });
+            });
+        }
+        
+        // ============ 常规投票功能 ============
+        const submitNormalVoteBtn = document.querySelector('.submit-normal-vote-btn');
+        const submitRevoteBtn = document.querySelector('.submit-revote-btn');
+        
+        // 常规投票提交
+        if (submitNormalVoteBtn) {
+            submitNormalVoteBtn.addEventListener('click', function() {
+                const formData = new FormData(document.getElementById('normalVoteForm'));
+                
+                // 禁用按钮，防止重复提交
+                this.disabled = true;
+                this.textContent = '提交中...';
+                
+                fetch('/api/vote', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('vote-alert', data.message, 'success');
+                        
+                        // 更新投票结果UI
+                        updateVoteResults(data.data);
+                        
+                        // 显示结果，隐藏表单
+                        document.getElementById('normalVoteForm').style.display = 'none';
+                        document.getElementById('vote-results').style.display = 'block';
+                    } else {
+                        showAlert('vote-alert', data.message, 'danger');
+                        this.disabled = false;
+                        this.textContent = '投票';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('vote-alert', '投票失败，请稍后重试', 'danger');
+                    this.disabled = false;
+                    this.textContent = '投票';
                 });
             });
         }

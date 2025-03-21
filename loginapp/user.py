@@ -8,6 +8,7 @@ import os
 import time
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from flask import jsonify
 
 # Create upload folder constant
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -974,3 +975,277 @@ def vote(post_id):
         flash('投票成功', 'success')
         
     return redirect(url_for('view_post', post_id=post_id))
+
+# 投票接口
+@app.route('/api/vote', methods=['POST'])
+def api_vote():
+    """处理投票请求的API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    post_id = request.form.get('post_id')
+    vote_options = request.form.getlist('options[]')  # 多选投票
+    vote_option = request.form.get('option')  # 单选投票
+    
+    if not post_id:
+        return jsonify({'success': False, 'message': '参数错误'}), 400
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 1. 获取投票信息
+            cursor.execute('''
+                SELECT v.vote_id, v.vote_type
+                FROM posts p
+                JOIN votes v ON p.vote_id = v.vote_id
+                WHERE p.post_id = %s
+            ''', (post_id,))
+            vote_info = cursor.fetchone()
+            
+            if not vote_info:
+                return jsonify({'success': False, 'message': '投票不存在'}), 404
+            
+            vote_id = vote_info['vote_id']
+            vote_type = vote_info['vote_type']
+            
+            # 2. 清除用户之前的投票（重新投票的情况）
+            cursor.execute('''
+                DELETE FROM user_votes
+                WHERE user_id = %s AND vote_id = %s
+            ''', (session['user_id'], vote_id))
+            
+            # 3. 保存新的投票
+            if vote_type == 2:  # 多选
+                if not vote_options:
+                    return jsonify({'success': False, 'message': '请至少选择一个选项'}), 400
+                
+                for option_id in vote_options:
+                    cursor.execute('''
+                        INSERT INTO user_votes (user_id, post_id, vote_id, vote_option_id, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, NOW(), NOW())
+                    ''', (session['user_id'], post_id, vote_id, option_id))
+            else:  # 单选
+                if not vote_option:
+                    return jsonify({'success': False, 'message': '请选择一个选项'}), 400
+                
+                cursor.execute('''
+                    INSERT INTO user_votes (user_id, post_id, vote_id, vote_option_id, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, NOW(), NOW())
+                ''', (session['user_id'], post_id, vote_id, vote_option))
+            
+            db.get_db().commit()
+            
+            # 4. 获取最新的投票结果
+            cursor.execute('''
+                SELECT vo.vote_option_id, vo.title,
+                      (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_option_id = vo.vote_option_id) as vote_count
+                FROM vote_options vo
+                WHERE vo.vote_id = %s
+                ORDER BY vo.created_at
+            ''', (vote_id,))
+            options = cursor.fetchall()
+            
+            # 计算总投票数
+            total_votes = sum(option['vote_count'] for option in options)
+            
+            # 获取用户的投票选项
+            cursor.execute('''
+                SELECT vote_option_id
+                FROM user_votes
+                WHERE user_id = %s AND vote_id = %s
+            ''', (session['user_id'], vote_id))
+            user_votes = cursor.fetchall()
+            user_voted_options = [vote['vote_option_id'] for vote in user_votes]
+            
+            # 计算每个选项的百分比
+            for option in options:
+                option['percent'] = int((option['vote_count'] / total_votes * 100) if total_votes > 0 else 0)
+            
+            return jsonify({
+                'success': True,
+                'message': '投票成功',
+                'data': {
+                    'options': options,
+                    'total_votes': total_votes,
+                    'user_voted_options': user_voted_options
+                }
+            })
+            
+    except Exception as e:
+        print(f"投票失败: {str(e)}")
+        return jsonify({'success': False, 'message': '投票失败，请稍后重试'}), 500
+
+# 添加评论接口
+@app.route('/api/comments', methods=['POST'])
+def add_comment():
+    """添加评论API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    post_id = request.form.get('post_id')
+    content = request.form.get('content', '').strip()
+    
+    if not post_id or not content:
+        return jsonify({'success': False, 'message': '参数错误'}), 400
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 1. 插入评论
+            cursor.execute('''
+                INSERT INTO comments (post_id, user_id, content, created_at, updated_at)
+                VALUES (%s, %s, %s, NOW(), NOW())
+            ''', (post_id, session['user_id'], content))
+            db.get_db().commit()
+            
+            # 2. 获取新插入的评论ID
+            comment_id = cursor.lastrowid
+            
+            # 3. 获取评论详情
+            cursor.execute('''
+                SELECT 
+                    c.comment_id, c.content, c.created_at,
+                    u.user_id, u.username, u.profile_image
+                FROM comments c
+                JOIN users u ON c.user_id = u.user_id
+                WHERE c.comment_id = %s
+            ''', (comment_id,))
+            comment = cursor.fetchone()
+            
+            if comment:
+                # 格式化日期时间
+                comment['created_at_formatted'] = comment['created_at'].strftime('%Y-%m-%d %H:%M')
+                comment['likes'] = 0  # 新评论默认点赞数为0
+            
+            return jsonify({
+                'success': True,
+                'message': '评论成功',
+                'data': comment
+            })
+            
+    except Exception as e:
+        print(f"评论失败: {str(e)}")
+        return jsonify({'success': False, 'message': '评论失败，请稍后重试'}), 500
+
+# 评论点赞接口
+@app.route('/api/comments/like', methods=['POST'])
+def like_comment():
+    """评论点赞API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    comment_id = request.form.get('comment_id')
+    
+    if not comment_id:
+        return jsonify({'success': False, 'message': '参数错误'}), 400
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 检查用户是否已点赞
+            cursor.execute('''
+                SELECT 1 FROM likes
+                WHERE user_id = %s AND comment_id = %s
+            ''', (session['user_id'], comment_id))
+            already_liked = cursor.fetchone() is not None
+            
+            if already_liked:
+                # 取消点赞
+                cursor.execute('''
+                    DELETE FROM likes
+                    WHERE user_id = %s AND comment_id = %s
+                ''', (session['user_id'], comment_id))
+                action = 'unlike'
+            else:
+                # 添加点赞
+                cursor.execute('''
+                    INSERT INTO likes (comment_id, user_id, created_at, updated_at)
+                    VALUES (%s, %s, NOW(), NOW())
+                ''', (comment_id, session['user_id']))
+                action = 'like'
+            
+            db.get_db().commit()
+            
+            # 获取最新点赞数
+            cursor.execute('''
+                SELECT COUNT(*) as like_count FROM likes
+                WHERE comment_id = %s
+            ''', (comment_id,))
+            result = cursor.fetchone()
+            like_count = result['like_count'] if result else 0
+            
+            return jsonify({
+                'success': True,
+                'message': '操作成功',
+                'data': {
+                    'action': action,
+                    'like_count': like_count
+                }
+            })
+            
+    except Exception as e:
+        print(f"点赞失败: {str(e)}")
+        return jsonify({'success': False, 'message': '操作失败，请稍后重试'}), 500
+
+# 删除评论接口
+@app.route('/api/comments/delete', methods=['POST'])
+def delete_comment():
+    """删除评论API接口，返回JSON格式数据"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': '请先登录',
+            'redirect': url_for('login')
+        }), 401
+    
+    comment_id = request.form.get('comment_id')
+    
+    if not comment_id:
+        return jsonify({'success': False, 'message': '参数错误'}), 400
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 验证评论所有权
+            cursor.execute('''
+                SELECT user_id FROM comments
+                WHERE comment_id = %s
+            ''', (comment_id,))
+            comment = cursor.fetchone()
+            
+            if not comment:
+                return jsonify({'success': False, 'message': '评论不存在'}), 404
+                
+            if comment['user_id'] != session['user_id']:
+                return jsonify({'success': False, 'message': '无权删除该评论'}), 403
+            
+            # 删除评论关联的点赞
+            cursor.execute('''
+                DELETE FROM likes
+                WHERE comment_id = %s
+            ''', (comment_id,))
+            
+            # 删除评论
+            cursor.execute('''
+                DELETE FROM comments
+                WHERE comment_id = %s
+            ''', (comment_id,))
+            
+            db.get_db().commit()
+            
+            return jsonify({
+                'success': True,
+                'message': '评论已删除'
+            })
+            
+    except Exception as e:
+        print(f"删除评论失败: {str(e)}")
+        return jsonify({'success': False, 'message': '删除失败，请稍后重试'}), 500
