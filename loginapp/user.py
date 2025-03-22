@@ -297,7 +297,7 @@ def update_profile():
 
 def fix_image_orientation(image):
     try:
-        # 获取EXIF数据
+        # Get EXIF data
         for orientation in ExifTags.TAGS.keys():
             if ExifTags.TAGS[orientation] == 'Orientation':
                 break
@@ -313,7 +313,7 @@ def fix_image_orientation(image):
                 image = image.rotate(90, expand=True)
                 
     except (AttributeError, KeyError, IndexError):
-        # 某些图片可能没有EXIF信息，直接跳过
+        # Some images may not have EXIF information, skip those
         pass
     
     return image
@@ -324,9 +324,9 @@ def update_profile_image():
     if 'loggedin' not in session:
         return redirect(url_for('login'))
 
-    # 指定上传文件夹
+    # Specify upload folder
     PROFILE_UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads', 'profiles')
-    # 确保目录存在
+    # Ensure directory exists
     os.makedirs(PROFILE_UPLOAD_FOLDER, exist_ok=True)
 
     # Handle image deletion
@@ -348,7 +348,7 @@ def update_profile_image():
                              (session['user_id'],))
                 db.get_db().commit()
         
-        flash('头像已删除', 'success')
+        flash('Avatar deleted', 'success')
         return redirect(url_for('profile'))
 
     # Handle image upload
@@ -363,22 +363,22 @@ def update_profile_image():
 
     if file and allowed_file(file.filename):
         try:
-            # 读取图片并修复方向
+            # Read image and fix orientation
             image = Image.open(file)
             image = fix_image_orientation(image)
             
-            # 获取原始文件扩展名
+            # Get original file extension
             original_extension = os.path.splitext(file.filename)[1].lower()
             if original_extension.startswith('.'):
                 original_extension = original_extension[1:]
             
-            # 生成文件名
+            # Generate filename
             filename = f"profile_{session['user_id']}_{int(time.time() * 1000)}.{original_extension}"
             
-            # 保存处理后的图片
+            # Save processed image
             image.save(os.path.join(PROFILE_UPLOAD_FOLDER, filename))
             
-            # 更新数据库
+            # Update database
             with db.get_cursor() as cursor:
                 # Delete old image if exists
                 cursor.execute('SELECT profile_image FROM users WHERE user_id = %s;',
@@ -395,7 +395,7 @@ def update_profile_image():
                              (filename, session['user_id']))
                 db.get_db().commit()
 
-            flash('头像上传成功', 'success')
+            flash('Avatar uploaded successfully', 'success')
             
         except Exception as e:
             flash('Error processing image', 'danger')
@@ -422,7 +422,7 @@ def change_password():
     new_password = request.form.get('new_password')
     confirm_password = request.form.get('confirm_password')
     
-    # 验证表单数据完整性
+    # Validate form data completeness
     if not all([current_password, new_password, confirm_password]):
         flash('All fields are required', 'danger')
         return redirect(url_for('profile', show_password_tab=True))
@@ -430,29 +430,29 @@ def change_password():
     cursor = db.get_db().cursor()
     
     try:
-        # 验证当前密码
+        # Verify current password
         cursor.execute('SELECT password_hash FROM users WHERE user_id = %s', (session['user_id'],))
         user = cursor.fetchone()
         if not user or not flask_bcrypt.check_password_hash(user[0], current_password):
             flash('Current password is incorrect', 'danger')
             return redirect(url_for('profile', show_password_tab=True))
         
-        # 验证新密码
+        # Validate new password
         if new_password != confirm_password:
             flash('New passwords do not match', 'danger')
             return redirect(url_for('profile', show_password_tab=True))
         
-        # 验证新密码格式
+        # Validate new password format
         if not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$', new_password):
             flash('Password must be at least 8 characters long and contain both letters and numbers', 'danger')
             return redirect(url_for('profile', show_password_tab=True))
         
-        # 验证新密码不能与当前密码相同
+        # Validate new password is different from current password
         if flask_bcrypt.check_password_hash(user[0], new_password):
             flash('New password cannot be the same as current password', 'danger')
             return redirect(url_for('profile', show_password_tab=True))
         
-        # 更新密码
+        # Update password
         cursor.execute(
             'UPDATE users SET password_hash = %s WHERE user_id = %s',
             (flask_bcrypt.generate_password_hash(new_password), session['user_id'])
@@ -488,7 +488,8 @@ def logout():
 
 @app.route('/messages')
 def messages():
-
+    if 'loggedin' not in session:
+        return redirect(url_for('login'))
     return render_template('messages.html')
 
 
@@ -549,7 +550,8 @@ def me():
 
 @app.route('/subscription')
 def subscription():
-
+    if 'loggedin' not in session:
+        return redirect(url_for('login'))
     return render_template('subscription.html')
 
 
@@ -614,7 +616,7 @@ def list_posts():
             # Convert user_liked to boolean
             post['user_liked'] = bool(post['user_liked'])
             
-            # 确保likes字段不为None
+            # Ensure likes field is not None
             if post['likes'] is None:
                 post['likes'] = 0
     
@@ -629,6 +631,13 @@ def list_posts():
 
 @app.route('/sub_list_posts')
 def sub_list_posts():
+   
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': 'Please log in first',
+            'redirect': url_for('login')
+        }), 401
     """Subscription list posts endpoint.
     
     This endpoint is used to retrieve a paginated list of posts from users that
@@ -701,7 +710,7 @@ def sub_list_posts():
             # Convert user_liked to boolean
             post['user_liked'] = bool(post['user_liked'])
             
-            # 确保likes字段不为None
+            # Ensure likes field is not None
             if post['likes'] is None:
                 post['likes'] = 0
     
@@ -715,9 +724,9 @@ def sub_list_posts():
 
 @app.route('/view_post/<int:post_id>')
 def view_post(post_id):
-    """帖子详情页面。"""
+    """Post detail page."""
     with db.get_cursor() as cursor:
-        # 获取帖子基本信息和作者信息
+        # Get basic post information and author information
         cursor.execute('''
             SELECT 
                 p.post_id, p.title, p.content, p.created_at, p.vote_id,
@@ -729,10 +738,10 @@ def view_post(post_id):
         post = cursor.fetchone()
         
         if not post:
-            flash('帖子不存在', 'danger')
+            flash('Post does not exist', 'danger')
             return redirect(url_for('list_posts'))
         
-        # 检查当前用户是否已关注作者
+        # Check if current user is following the author
         is_following = False
         is_author = False
         if 'loggedin' in session:
@@ -746,7 +755,7 @@ def view_post(post_id):
                 ''', (current_user_id, post['author_id']))
                 is_following = cursor.fetchone() is not None
         
-        # 获取其他必要数据（图片、投票、评论等）
+        # Get other necessary data (images, polls, comments, etc.)
         cursor.execute('''
             SELECT image_id, image_path
             FROM post_images
@@ -755,7 +764,7 @@ def view_post(post_id):
         ''', (post_id,))
         images = cursor.fetchall()
         
-        # 3. 获取投票信息
+        # 3. Get poll information
         vote_data = None
         if post.get('vote_id'):
             cursor.execute('''
@@ -766,7 +775,7 @@ def view_post(post_id):
             vote = cursor.fetchone()
             
             if vote:
-                # 获取投票选项
+                # Get poll options
                 cursor.execute('''
                     SELECT vote_option_id, title
                     FROM vote_options
@@ -775,7 +784,7 @@ def view_post(post_id):
                 ''', (vote['vote_id'],))
                 options = cursor.fetchall()
                 
-                # 获取每个选项的投票数
+                # Get votes count for each option
                 for option in options:
                     cursor.execute('''
                         SELECT COUNT(*) as vote_count
@@ -785,10 +794,10 @@ def view_post(post_id):
                     count_result = cursor.fetchone()
                     option['vote_count'] = count_result['vote_count'] if count_result else 0
                 
-                # 计算总投票数
+                # Calculate total votes
                 total_votes = sum(option['vote_count'] for option in options)
                 
-                # 检查当前用户是否已投票
+                # Check if current user has voted
                 user_voted_options = []
                 has_voted = False
                 if 'loggedin' in session:
@@ -810,7 +819,7 @@ def view_post(post_id):
                     'user_voted_options': user_voted_options
                 }
         
-        # 4. 获取评论列表
+        # 4. Get comments list
         cursor.execute('''
             SELECT 
                 c.comment_id, c.content, c.created_at,
@@ -822,7 +831,7 @@ def view_post(post_id):
         ''', (post_id,))
         comments = cursor.fetchall()
         
-        # 5. 为每条评论添加点赞数
+        # 5. Add likes count for each comment
         # for comment in comments:
         #     cursor.execute('''
         #         SELECT COUNT(*) as like_count
@@ -832,7 +841,7 @@ def view_post(post_id):
         #     like_result = cursor.fetchone()
         #     comment['likes'] = like_result['like_count'] if like_result else 0
         
-        # 6. 获取当前用户信息（用于评论区显示）
+        # 6. Get current user information (for comment section display)
         current_user = None
         if 'loggedin' in session:
             cursor.execute('''
@@ -842,7 +851,7 @@ def view_post(post_id):
             ''', (session['user_id'],))
             current_user = cursor.fetchone()
             
-            # 检查当前用户是否是帖子作者
+            # Check if current user is the post author
             is_author = (current_user['user_id'] == post['author_id']) if current_user else False
         else:
             is_author = False
@@ -858,13 +867,13 @@ def view_post(post_id):
 
 @app.route('/posts/image/<filename>')
 def get_post_image(filename):
-    """提供帖子图片。"""
+    """Serve post images."""
     upload_folder = os.path.join(app.static_folder, 'uploads', 'posts')
     return send_from_directory(upload_folder, filename)
 
 @app.route('/create_posts', methods=['GET', 'POST'])
 def create_posts():
-    """创建新帖子页面及功能。"""
+    """Create new post page and functionality."""
     if 'loggedin' not in session:
         return redirect(url_for('login'))
         
@@ -873,100 +882,100 @@ def create_posts():
         content = request.form.get('content', '').strip()
         poll_data_str = request.form.get('pollData')
         
-        # 验证输入
+        # Validate input
         if not title or not content:
-            flash('请填写所有必填字段')
+            flash('Please fill in all required fields')
             return render_template('create.html')
             
         if len(title) > 100:
-            flash('标题不能超过100个字符')
+            flash('Title cannot exceed 100 characters')
             return render_template('create.html')
             
         if len(title) < 2:
-            flash('标题至少需要2个字符')
+            flash('Title must be at least 2 characters')
             return render_template('create.html')
             
         if len(content) < 10:
-            flash('内容至少需要10个字符')
+            flash('Content must be at least 10 characters')
             return render_template('create.html')
             
         if len(content) > 5000:
-            flash('内容不能超过5000个字符')
+            flash('Content cannot exceed 5000 characters')
             return render_template('create.html')
             
         try:
             cursor = db.get_db().cursor()
             
-            # 默认投票ID为0（没有投票）
+            # Default vote ID is 0 (no poll)
             vote_id = 0
             
-            # 处理投票数据
+            # Process poll data
             if poll_data_str and poll_data_str != 'null':
                 import json
-                print(f"接收到的投票数据字符串: {poll_data_str}")
+                print(f"Received poll data string: {poll_data_str}")
                 
                 try:
                     poll_data = json.loads(poll_data_str)
                     
                     if poll_data and isinstance(poll_data, dict):
-                        print(f"解析后的投票数据: {poll_data}")
+                        print(f"Parsed poll data: {poll_data}")
                         
-                        # 创建投票
+                        # Create poll
                         vote_title = poll_data.get('question', '').strip()
                         allow_multiple = 2 if poll_data.get('allowMultiple', False) else 1
                         options = poll_data.get('options', [])
                         
-                        # 验证投票数据
+                        # Validate poll data
                         if not vote_title:
-                            print("投票标题为空，跳过投票创建")
+                            print("Poll title is empty, skipping poll creation")
                         elif len(options) < 2:
-                            print(f"投票选项数量不足，当前数量: {len(options)}，跳过投票创建")
+                            print(f"Insufficient poll options, current count: {len(options)}, skipping poll creation")
                         else:
-                            print(f"投票标题: {vote_title}")
-                            print(f"是否多选: {allow_multiple}")
-                            print(f"投票选项: {options}")
+                            print(f"Poll title: {vote_title}")
+                            print(f"Allow multiple: {allow_multiple}")
+                            print(f"Poll options: {options}")
                             
-                            # 1. 插入投票主表记录
+                            # 1. Insert poll main record
                             cursor.execute(
                                 "INSERT INTO votes (title, vote_type, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
-                                (vote_title, allow_multiple)  # 不再使用vote_option_id
+                                (vote_title, allow_multiple)  # No longer using vote_option_id
                             )
                             vote_id = cursor.lastrowid
-                            print(f"已创建投票ID: {vote_id}")
+                            print(f"Created poll ID: {vote_id}")
                             
-                            # 记录选项ID，用于后续更新
+                            # Record option IDs for later update
                             option_ids = []
                             
-                            # 2. 插入投票选项
+                            # 2. Insert poll options
                             for option in options:
-                                # 使用新的表结构直接插入带vote_id的选项
-                                if option.strip():  # 确保选项不为空
+                                # Insert options with vote_id directly using the new table structure
+                                if option.strip():  # Ensure option is not empty
                                     cursor.execute(
                                         "INSERT INTO vote_options (title, vote_id, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
                                         (option.strip(), vote_id)
                                     )
                                     option_id = cursor.lastrowid
                                     option_ids.append(option_id)
-                                    print(f"已添加选项 '{option}', ID: {option_id}, 关联投票ID: {vote_id}")
+                                    print(f"Added option '{option}', ID: {option_id}, linked to poll ID: {vote_id}")
                             
-                            # 不再需要更新投票表的vote_option_id字段
+                            # No longer need to update vote_option_id field in votes table
                             # if option_ids:
                             #     cursor.execute(
                             #         "UPDATE votes SET vote_option_id = %s WHERE vote_id = %s",
                             #         (option_ids[0], vote_id)
                             #     )
-                            #     print(f"已更新投票表的vote_option_id为: {option_ids[0]}")
+                            #     print(f"Updated vote_option_id in votes table to: {option_ids[0]}")
                     else:
-                        print("投票数据为空或格式不正确，跳过投票创建")
+                        print("Poll data is empty or in incorrect format, skipping poll creation")
                 except Exception as e:
-                    print(f"处理投票数据时出错: {str(e)}")
-                    # 继续处理，不影响帖子的创建
+                    print(f"Error processing poll data: {str(e)}")
+                    # Continue processing, don't affect post creation
             
-            # 此处确保vote_id始终有值
+            # Ensure vote_id always has a value
             if vote_id is None:
                 vote_id = 0
             
-            # 插入文章内容
+            # Insert post content
             sql = """INSERT INTO posts 
                     (user_id, vote_id, title, content, created_at, updated_at) 
                     VALUES (%s, %s, %s, %s, NOW(), NOW())"""
@@ -974,48 +983,48 @@ def create_posts():
             cursor.execute(sql, values)
             post_id = cursor.lastrowid
             
-            # 处理图片上传
+            # Process image uploads
             images = request.files.getlist('images[]')
             if images and images[0].filename:
-                # 确保上传目录存在
+                # Ensure upload directory exists
                 upload_folder = os.path.join(app.static_folder, 'uploads', 'posts')
                 if not os.path.exists(upload_folder):
                     os.makedirs(upload_folder)
                 
-                # 存储图片路径，用于后续保存到数据库
+                # Store image paths for later database storage
                 image_paths = []
                 
                 for image in images:
                     if image and allowed_file(image.filename):
-                        # 安全地获取文件名并创建唯一文件名
+                        # Safely get filename and create unique filename
                         filename = secure_filename(image.filename)
-                        # 添加时间戳防止文件名冲突
+                        # Add timestamp to prevent filename conflicts
                         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                         unique_filename = f"{timestamp}_{filename}"
                         
-                        # 保存图片
+                        # Save image
                         file_path = os.path.join(upload_folder, unique_filename)
                         image.save(file_path)
                         
-                        # 将路径添加到列表
+                        # Add path to list
                         image_paths.append(unique_filename)
                         
-                        # 将图片信息保存到数据库
+                        # Save image info to database
                         try:
                             cursor.execute(
                                 "INSERT INTO post_images (post_id, image_path, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
                                 (post_id, unique_filename)
                             )
-                            print(f"已保存图片路径 '{unique_filename}' 到数据库，关联帖子ID: {post_id}")
+                            print(f"Saved image path '{unique_filename}' to database, linked to post ID: {post_id}")
                         except Exception as img_err:
-                            print(f"保存图片数据时出错: {str(img_err)}")
-                            # 继续处理其他图片，不中断流程
+                            print(f"Error saving image data: {str(img_err)}")
+                            # Continue processing other images, don't break the flow
             
             db.get_db().commit()
             cursor.close()
-            flash('发布成功', 'success')
+            flash('Published successfully', 'success')
             
-            # 重定向到首页或文章详情页
+            # Redirect to home page or post detail page
             if session['role'] == 'visitor':
                 return redirect(url_for('visitor_home'))
             elif session['role'] == 'helper':
@@ -1024,121 +1033,121 @@ def create_posts():
                 return redirect(url_for('admin_home'))
             
         except Exception as e:
-            print(f"创建帖子时出错: {str(e)}")
-            flash('发布失败，请稍后重试')
+            print(f"Error creating post: {str(e)}")
+            flash('Publication failed, please try again later')
             return render_template('create.html')
     
     return render_template('create.html')
 
 @app.route('/vote/<int:post_id>', methods=['POST'])
 def vote(post_id):
-    """处理用户投票。"""
+    """Process user votes."""
     if 'loggedin' not in session:
         return redirect(url_for('login'))
     
-    # 检查帖子和投票是否存在
+    # Check if post and poll exist
     with db.get_cursor() as cursor:
         cursor.execute('SELECT vote_id FROM posts WHERE post_id = %s', (post_id,))
         post = cursor.fetchone()
         
         if not post or post['vote_id'] == 0:
-            flash('投票不存在', 'danger')
+            flash('Poll does not exist', 'danger')
             return redirect(url_for('view_post', post_id=post_id))
         
         vote_id = post['vote_id']
         
-        # 检查投票类型（单选或多选）
+        # Check poll type (single or multiple choice)
         cursor.execute('SELECT vote_type FROM votes WHERE vote_id = %s', (vote_id,))
         vote = cursor.fetchone()
         
         if not vote:
-            flash('投票不存在', 'danger')
+            flash('Poll does not exist', 'danger')
             return redirect(url_for('view_post', post_id=post_id))
         
-        # 获取用户选择的选项
-        if vote['vote_type'] == 2:  # 多选
+        # Get user-selected options
+        if vote['vote_type'] == 2:  # Multiple choice
             options = request.form.getlist('options[]')
             if not options:
-                flash('请至少选择一个选项', 'warning')
+                flash('Please select at least one option', 'warning')
                 return redirect(url_for('view_post', post_id=post_id))
             
-            # 检查用户是否已经投过票
+            # Check if user has already voted
             cursor.execute(
                 'SELECT 1 FROM user_votes WHERE user_id = %s AND vote_id = %s',
                 (session['user_id'], vote_id)
             )
             if cursor.fetchone():
-                # 删除用户之前的投票
+                # Delete user's previous votes
                 cursor.execute(
                     'DELETE FROM user_votes WHERE user_id = %s AND vote_id = %s',
                     (session['user_id'], vote_id)
                 )
             
-            # 保存用户的多选投票
+            # Save user's multiple choice votes
             for option_id in options:
                 cursor.execute(
                     'INSERT INTO user_votes (user_id, vote_id, option_id, created_at) VALUES (%s, %s, %s, NOW())',
                     (session['user_id'], vote_id, option_id)
                 )
-        else:  # 单选
+        else:  # Single choice
             option_id = request.form.get('option')
             if not option_id:
-                flash('请选择一个选项', 'warning')
+                flash('Please select an option', 'warning')
                 return redirect(url_for('view_post', post_id=post_id))
             
-            # 检查用户是否已经投过票
+            # Check if user has already voted
             cursor.execute(
                 'SELECT 1 FROM user_votes WHERE user_id = %s AND vote_id = %s',
                 (session['user_id'], vote_id)
             )
             if cursor.fetchone():
-                # 更新用户的投票
+                # Update user's vote
                 cursor.execute(
                     'UPDATE user_votes SET option_id = %s, created_at = NOW() WHERE user_id = %s AND vote_id = %s',
                     (option_id, session['user_id'], vote_id)
                 )
             else:
-                # 添加新的投票
+                # Add new vote
                 cursor.execute(
                     'INSERT INTO user_votes (user_id, vote_id, option_id, created_at) VALUES (%s, %s, %s, NOW())',
                     (session['user_id'], vote_id, option_id)
                 )
         
         db.get_db().commit()
-        flash('投票成功', 'success')
+        flash('Vote successful', 'success')
         
     return redirect(url_for('view_post', post_id=post_id))
 
-# 投票接口
+# Poll API
 @app.route('/api/vote', methods=['POST'])
 def api_vote():
-    """处理投票请求的API接口，返回JSON格式数据"""
+    """API endpoint for handling vote requests, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
     post_id = request.form.get('post_id')
-    # 尝试多种方式获取多选投票数据
+    # Try different ways to get multiple poll data
     vote_options = request.form.getlist('options[]')
     if not vote_options:
-        # 如果上面的方式失败，尝试其他可能的名称
+        # If the above method fails, try other possible names
         vote_options = request.form.getlist('options')
     
-    # 打印表单数据进行调试
-    print("投票表单数据:", request.form)
-    print("多选选项:", vote_options)
+    # Print form data for debugging
+    print("Vote form data:", request.form)
+    print("Multiple options:", vote_options)
     
-    vote_option = request.form.get('option')  # 单选投票
+    vote_option = request.form.get('option')  # Single poll vote
     
     if not post_id:
-        return jsonify({'success': False, 'message': '参数错误'}), 400
+        return jsonify({'success': False, 'message': 'Parameter error'}), 400
     
     try:
         with db.get_cursor() as cursor:
-            # 1. 获取投票信息
+            # 1. Get poll information
             cursor.execute('''
                 SELECT v.vote_id, v.vote_type
                 FROM posts p
@@ -1148,30 +1157,30 @@ def api_vote():
             vote_info = cursor.fetchone()
             
             if not vote_info:
-                return jsonify({'success': False, 'message': '投票不存在'}), 404
+                return jsonify({'success': False, 'message': 'Poll does not exist'}), 404
             
             vote_id = vote_info['vote_id']
             vote_type = vote_info['vote_type']
             
-            # 2. 清除用户之前的投票（重新投票的情况）
+            # 2. Clear user's previous votes (in case of re-voting)
             cursor.execute('''
                 DELETE FROM user_votes
                 WHERE user_id = %s AND vote_id = %s
             ''', (session['user_id'], vote_id))
             
-            # 3. 保存新的投票
-            if vote_type == 2:  # 多选
+            # 3. Save new votes
+            if vote_type == 2:  # Multiple choice
                 if not vote_options:
-                    return jsonify({'success': False, 'message': '请至少选择一个选项'}), 400
+                    return jsonify({'success': False, 'message': 'Please select at least one option'}), 400
                 
                 for option_id in vote_options:
                     cursor.execute('''
                         INSERT INTO user_votes (user_id, post_id, vote_id, vote_option_id, created_at, updated_at)
                         VALUES (%s, %s, %s, %s, NOW(), NOW())
                     ''', (session['user_id'], post_id, vote_id, option_id))
-            else:  # 单选
+            else:  # Single choice
                 if not vote_option:
-                    return jsonify({'success': False, 'message': '请选择一个选项'}), 400
+                    return jsonify({'success': False, 'message': 'Please select an option'}), 400
                 
                 cursor.execute('''
                     INSERT INTO user_votes (user_id, post_id, vote_id, vote_option_id, created_at, updated_at)
@@ -1180,7 +1189,7 @@ def api_vote():
             
             db.get_db().commit()
             
-            # 4. 获取最新的投票结果
+            # 4. Get latest poll results
             cursor.execute('''
                 SELECT vo.vote_option_id, vo.title,
                       (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_option_id = vo.vote_option_id) as vote_count
@@ -1190,10 +1199,10 @@ def api_vote():
             ''', (vote_id,))
             options = cursor.fetchall()
             
-            # 计算总投票数
+            # Calculate total votes
             total_votes = sum(option['vote_count'] for option in options)
             
-            # 获取用户的投票选项
+            # Get user's vote options
             cursor.execute('''
                 SELECT vote_option_id
                 FROM user_votes
@@ -1202,13 +1211,13 @@ def api_vote():
             user_votes = cursor.fetchall()
             user_voted_options = [vote['vote_option_id'] for vote in user_votes]
             
-            # 计算每个选项的百分比
+            # Calculate percentage for each option
             for option in options:
                 option['percent'] = int((option['vote_count'] / total_votes * 100) if total_votes > 0 else 0)
             
             return jsonify({
                 'success': True,
-                'message': '投票成功',
+                'message': 'Vote successful',
                 'data': {
                     'options': options,
                     'total_votes': total_votes,
@@ -1217,17 +1226,17 @@ def api_vote():
             })
             
     except Exception as e:
-        print(f"投票失败: {str(e)}")
-        return jsonify({'success': False, 'message': '投票失败，请稍后重试'}), 500
+        print(f"Vote failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Vote failed, please try again later'}), 500
 
-# 添加评论接口
+# Add comment API
 @app.route('/api/comments', methods=['POST'])
 def add_comment():
-    """添加评论API接口，返回JSON格式数据"""
+    """Add comment API endpoint, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
@@ -1235,21 +1244,21 @@ def add_comment():
     content = request.form.get('content', '').strip()
     
     if not post_id or not content:
-        return jsonify({'success': False, 'message': '参数错误'}), 400
+        return jsonify({'success': False, 'message': 'Parameter error'}), 400
     
     try:
         with db.get_cursor() as cursor:
-            # 1. 插入评论
+            # 1. Insert comment
             cursor.execute('''
                 INSERT INTO comments (post_id, user_id, content, created_at, updated_at)
                 VALUES (%s, %s, %s, NOW(), NOW())
             ''', (post_id, session['user_id'], content))
             db.get_db().commit()
             
-            # 2. 获取新插入的评论ID
+            # 2. Get new comment ID
             comment_id = cursor.lastrowid
             
-            # 3. 获取评论详情
+            # 3. Get comment details
             cursor.execute('''
                 SELECT 
                     c.comment_id, c.content, c.created_at, c.user_id,
@@ -1261,48 +1270,48 @@ def add_comment():
             comment = cursor.fetchone()
             
             if comment:
-                # 格式化日期时间
+                # Format date time
                 comment['created_at_formatted'] = comment['created_at'].strftime('%Y-%m-%d %H:%M')
-                comment['likes'] = 0  # 新评论默认点赞数为0
+                comment['likes'] = 0  # Default likes for new comment is 0
             
             return jsonify({
                 'success': True,
-                'message': '评论成功',
+                'message': 'Comment successful',
                 'data': comment
             })
             
     except Exception as e:
-        print(f"评论失败: {str(e)}")
-        return jsonify({'success': False, 'message': '评论失败，请稍后重试'}), 500
+        print(f"Comment failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Comment failed, please try again later'}), 500
 
-# 评论点赞接口
+# Comment like API
 @app.route('/api/comments/like', methods=['POST'])
 def like_comment():
-    """评论点赞API接口，返回JSON格式数据"""
+    """Comment like API endpoint, returns JSON data"""
     return jsonify({
         'success': False,
-        'message': '评论点赞功能暂未实现，当前 likes 表仅支持对帖子点赞'
+        'message': 'Comment like function not yet implemented, the current likes table only supports post likes'
     }), 501
 
-# 删除评论接口
+# Delete comment API
 @app.route('/api/comments/delete', methods=['POST'])
 def delete_comment():
-    """删除评论API接口，返回JSON格式数据"""
+    """Delete comment API endpoint, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
     comment_id = request.form.get('comment_id')
     
     if not comment_id:
-        return jsonify({'success': False, 'message': '参数错误'}), 400
+        return jsonify({'success': False, 'message': 'Parameter error'}), 400
     
     try:
         with db.get_cursor() as cursor:
-            # 验证评论所有权
+            # Verify comment ownership
             cursor.execute('''
                 SELECT user_id FROM comments
                 WHERE comment_id = %s
@@ -1310,12 +1319,12 @@ def delete_comment():
             comment = cursor.fetchone()
             
             if not comment:
-                return jsonify({'success': False, 'message': '评论不存在'}), 404
+                return jsonify({'success': False, 'message': 'Comment does not exist'}), 404
                 
             if comment['user_id'] != session['user_id']:
-                return jsonify({'success': False, 'message': '无权删除该评论'}), 403
+                return jsonify({'success': False, 'message': 'No permission to delete this comment'}), 403
             
-            # 删除评论
+            # Delete comment
             cursor.execute('''
                 DELETE FROM comments
                 WHERE comment_id = %s
@@ -1325,37 +1334,37 @@ def delete_comment():
             
             return jsonify({
                 'success': True,
-                'message': '评论已删除'
+                'message': 'Comment deleted'
             })
             
     except Exception as e:
-        print(f"删除评论失败: {str(e)}")
-        return jsonify({'success': False, 'message': '删除失败，请稍后重试'}), 500
+        print(f"Delete comment failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Delete failed, please try again later'}), 500
 
-# 关注/取消关注接口
+# Follow/unfollow API
 @app.route('/api/follow', methods=['POST'])
 def api_follow():
-    """处理关注/取消关注的API接口，返回JSON格式数据"""
+    """API endpoint for handling follow/unfollow, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
-    follower_id = session['user_id']  # 当前登录用户ID（关注者）
-    user_id = request.form.get('user_id')  # 被关注用户ID
+    follower_id = session['user_id']  # Current logged-in user ID (follower)
+    user_id = request.form.get('user_id')  # Target user ID to follow
     
     if not user_id:
-        return jsonify({'success': False, 'message': '参数错误'}), 400
+        return jsonify({'success': False, 'message': 'Parameter error'}), 400
     
-    # 不能关注自己
+    # Cannot follow yourself
     if str(follower_id) == str(user_id):
-        return jsonify({'success': False, 'message': '不能关注自己'}), 400
+        return jsonify({'success': False, 'message': 'Cannot follow yourself'}), 400
     
     try:
         with db.get_cursor() as cursor:
-            # 查询是否已关注
+            # Check if already following
             cursor.execute('''
                 SELECT 1 FROM follows
                 WHERE follower_id = %s AND user_id = %s
@@ -1363,25 +1372,25 @@ def api_follow():
             already_followed = cursor.fetchone() is not None
             
             if already_followed:
-                # 已关注则取消关注
+                # If already following, unfollow
                 cursor.execute('''
                     DELETE FROM follows
                     WHERE follower_id = %s AND user_id = %s
                 ''', (follower_id, user_id))
                 is_following = False
-                message = '已取消关注'
+                message = 'Unfollowed'
             else:
-                # 未关注则添加关注
+                # If not following, add follow
                 cursor.execute('''
                     INSERT INTO follows (user_id, follower_id, created_at, updated_at)
                     VALUES (%s, %s, NOW(), NOW())
                 ''', (user_id, follower_id))
                 is_following = True
-                message = '关注成功'
+                message = 'Follow successful'
             
             db.get_db().commit()
             
-            # 获取被关注用户的粉丝数
+            # Get follower count for target user
             cursor.execute('''
                 SELECT COUNT(*) as followers_count 
                 FROM follows 
@@ -1401,17 +1410,17 @@ def api_follow():
             })
             
     except Exception as e:
-        print(f"关注操作失败: {str(e)}")
-        return jsonify({'success': False, 'message': '操作失败，请稍后重试'}), 500
+        print(f"Follow operation failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Operation failed, please try again later'}), 500
 
-# 获取用户关注的人列表接口
+# Get following users list API
 @app.route('/api/following', methods=['GET'])
 def api_get_following():
-    """获取当前用户关注的人列表API接口，返回JSON格式数据"""
+    """API endpoint to get current user's following list, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
@@ -1422,7 +1431,7 @@ def api_get_following():
     
     try:
         with db.get_cursor() as cursor:
-            # 获取关注列表总数
+            # Get total following count
             cursor.execute('''
                 SELECT COUNT(*) as total_count
                 FROM follows
@@ -1431,7 +1440,7 @@ def api_get_following():
             result = cursor.fetchone()
             total_count = result['total_count'] if result else 0
             
-            # 获取关注的用户列表
+            # Get following users list
             cursor.execute('''
                 SELECT u.user_id, u.username, u.profile_image, f.created_at as followed_at
                 FROM follows f
@@ -1442,7 +1451,7 @@ def api_get_following():
             ''', (follower_id, per_page, offset))
             following = cursor.fetchall()
             
-            # 格式化数据
+            # Format data
             following_list = []
             for follow in following:
                 following_list.append({
@@ -1464,17 +1473,17 @@ def api_get_following():
             })
             
     except Exception as e:
-        print(f"获取关注列表失败: {str(e)}")
-        return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
+        print(f"Get following list failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Data retrieval failed, please try again later'}), 500
 
-# 获取粉丝列表接口
+# Get followers list API
 @app.route('/api/followers', methods=['GET'])
 def api_get_followers():
-    """获取当前用户的粉丝列表API接口，返回JSON格式数据"""
+    """API endpoint to get current user's followers list, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
@@ -1485,7 +1494,7 @@ def api_get_followers():
     
     try:
         with db.get_cursor() as cursor:
-            # 获取粉丝列表总数
+            # Get total followers count
             cursor.execute('''
                 SELECT COUNT(*) as total_count
                 FROM follows
@@ -1494,7 +1503,7 @@ def api_get_followers():
             result = cursor.fetchone()
             total_count = result['total_count'] if result else 0
             
-            # 获取粉丝用户列表，并检查当前用户是否也关注了这些粉丝
+            # Get followers list and check if current user follows them back
             cursor.execute('''
                 SELECT 
                     u.user_id, u.username, u.profile_image, f.created_at as followed_at,
@@ -1507,7 +1516,7 @@ def api_get_followers():
             ''', (user_id, user_id, per_page, offset))
             followers = cursor.fetchall()
             
-            # 格式化数据
+            # Format data
             followers_list = []
             for follower in followers:
                 followers_list.append({
@@ -1530,17 +1539,17 @@ def api_get_followers():
             })
             
     except Exception as e:
-        print(f"获取粉丝列表失败: {str(e)}")
-        return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
+        print(f"Get followers list failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Data retrieval failed, please try again later'}), 500
 
-# 检查是否关注接口
+# Check follow status API
 @app.route('/api/check_follow/<int:target_user_id>', methods=['GET'])
 def api_check_follow(target_user_id):
-    """检查当前用户是否关注指定用户的API接口，返回JSON格式数据"""
+    """API endpoint to check if current user follows specific user, returns JSON data"""
     if 'loggedin' not in session:
         return jsonify({
             'success': False,
-            'message': '请先登录',
+            'message': 'Please log in first',
             'redirect': url_for('login')
         }), 401
     
@@ -1548,14 +1557,14 @@ def api_check_follow(target_user_id):
     
     try:
         with db.get_cursor() as cursor:
-            # 查询是否已关注
+            # Check if following
             cursor.execute('''
                 SELECT 1 FROM follows
                 WHERE follower_id = %s AND user_id = %s
             ''', (follower_id, target_user_id))
             is_following = cursor.fetchone() is not None
             
-            # 获取目标用户的粉丝数
+            # Get follower count for target user
             cursor.execute('''
                 SELECT COUNT(*) as followers_count 
                 FROM follows 
@@ -1564,7 +1573,7 @@ def api_check_follow(target_user_id):
             result = cursor.fetchone()
             followers_count = result['followers_count'] if result else 0
             
-            # 获取目标用户的关注数
+            # Get following count for target user
             cursor.execute('''
                 SELECT COUNT(*) as following_count 
                 FROM follows 
@@ -1584,8 +1593,8 @@ def api_check_follow(target_user_id):
             })
             
     except Exception as e:
-        print(f"检查关注状态失败: {str(e)}")
-        return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
+        print(f"Check follow status failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Data retrieval failed, please try again later'}), 500
 
 @app.route('/api/like/<int:post_id>', methods=['POST'])
 def like_post(post_id):

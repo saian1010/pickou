@@ -484,6 +484,11 @@
     }
     
     .pk-option.selected {
+        background-color: rgba(255, 36, 66, 0.1);
+    }
+    
+    .pk-option.selected-by-user {
+        background-color: rgba(255, 36, 66, 0.2);
         border: 2px solid var(--xhs-primary);
     }
     
@@ -823,46 +828,171 @@
         
         // 更新投票结果UI函数
         function updateVoteResults(data) {
-            // 获取投票结果容器
-            const voteResults = document.getElementById('vote-results');
-            if (!voteResults) return;
+            // 获取总投票数
+            const totalVotes = data.total_votes;
             
-            // 更新总投票人数
-            const totalVoteCount = document.getElementById('total-vote-count');
-            if (totalVoteCount) {
-                totalVoteCount.textContent = data.total_votes;
-            }
+            // 根据投票类型更新UI
+            const isPkVote = document.querySelector('.pk-vote-container') !== null;
             
-            // 更新每个选项的结果
-            const options = data.options;
-            const userVotedOptions = data.user_voted_options;
-            
-            // 查找所有结果项
-            const resultItems = voteResults.querySelectorAll('.vote-result-item');
-            resultItems.forEach((item, index) => {
-                if (index < options.length) {
-                    const option = options[index];
+            if (isPkVote) {
+                // PK投票样式更新
+                const pkOptions = document.querySelectorAll('.pk-option');
+                
+                pkOptions.forEach(option => {
+                    const optionId = parseInt(option.getAttribute('data-option-id'));
                     
-                    // 更新百分比和票数
-                    const percentEl = item.querySelector('.vote-percent');
-                    if (percentEl) {
-                        percentEl.textContent = `${option.percent}% (${option.vote_count} votes)`;
+                    // 在选项数据中找到匹配的选项
+                    const optionData = data.options.find(opt => opt.vote_option_id === optionId);
+                    if (optionData) {
+                        // 计算百分比
+                        const percent = totalVotes > 0 ? Math.round((optionData.vote_count / totalVotes) * 100) : 0;
+                        
+                        // 更新百分比显示
+                        const percentEl = option.querySelector('.pk-option-percent');
+                        if (percentEl) {
+                            percentEl.textContent = `${percent}%`;
+                            percentEl.style.display = 'block';
+                        }
+                        
+                        // 更新票数显示
+                        const voteCountEl = option.querySelector('.pk-vote-count');
+                        if (voteCountEl) {
+                            voteCountEl.textContent = `(${optionData.vote_count} votes)`;
+                            voteCountEl.style.display = 'block';
+                        }
+                        
+                        // 更新进度条
+                        const barEl = option.querySelector('.pk-option-bar');
+                        if (barEl) {
+                            barEl.style.width = `${percent}%`;
+                        }
+                        
+                        // 更新选中状态
+                        if (data.user_voted_options.includes(optionId)) {
+                            option.classList.add('selected');
+                        } else {
+                            option.classList.remove('selected');
+                        }
                     }
-                    
-                    // 更新进度条
-                    const progressBar = item.querySelector('.progress-bar');
-                    if (progressBar) {
-                        progressBar.style.width = `${option.percent}%`;
-                    }
-                    
-                    // 更新选中状态
-                    const optionId = parseInt(item.getAttribute('data-option-id') || 0);
-                    if (userVotedOptions.includes(optionId)) {
-                        item.classList.add('selected');
-                    } else {
-                        item.classList.remove('selected');
-                    }
+                });
+            } else {
+                // 常规投票结果更新（原有逻辑）
+                // 获取投票结果容器
+                const voteResults = document.getElementById('vote-results');
+                if (!voteResults) return;
+                
+                // 更新总投票人数
+                const totalVoteCount = document.getElementById('total-vote-count');
+                if (totalVoteCount) {
+                    totalVoteCount.textContent = data.total_votes;
                 }
+                
+                // 更新每个选项的结果
+                const options = data.options;
+                const userVotedOptions = data.user_voted_options;
+                
+                // 查找所有结果项
+                const resultItems = voteResults.querySelectorAll('.vote-result-item');
+                resultItems.forEach((item, index) => {
+                    if (index < options.length) {
+                        const option = options[index];
+                        
+                        // 更新百分比和票数
+                        const percentEl = item.querySelector('.vote-percent');
+                        if (percentEl) {
+                            percentEl.textContent = `${option.percent}% (${option.vote_count} votes)`;
+                        }
+                        
+                        // 更新进度条
+                        const progressBar = item.querySelector('.progress-bar');
+                        if (progressBar) {
+                            progressBar.style.width = `${option.percent}%`;
+                        }
+                        
+                        // 更新选中状态
+                        const optionId = parseInt(item.getAttribute('data-option-id') || 0);
+                        if (userVotedOptions.includes(optionId)) {
+                            item.classList.add('selected');
+                        } else {
+                            item.classList.remove('selected');
+                        }
+                    }
+                });
+            }
+        }
+        
+        // ============ PK投票功能 ============
+        // 查找PK选项元素
+        const pkOptions = document.querySelectorAll('.pk-option');
+        const pkVoteBtn = document.getElementById('pk-vote-btn');
+        let selectedPkOption = null;
+        
+        // 为PK选项添加点击事件
+        if (pkOptions.length > 0 && pkVoteBtn) {
+            pkOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // 取消所有选中状态
+                    pkOptions.forEach(opt => opt.classList.remove('selected-by-user'));
+                    
+                    // 添加选中状态给当前选项
+                    this.classList.add('selected-by-user');
+                    
+                    // 获取选项ID并存储
+                    selectedPkOption = this.getAttribute('data-option-id');
+                    
+                    // 更新隐藏输入字段
+                    const hiddenInput = document.getElementById('pk-selected-option');
+                    if (hiddenInput) {
+                        hiddenInput.value = selectedPkOption;
+                    }
+                    
+                    // 启用投票按钮
+                    pkVoteBtn.disabled = false;
+                });
+            });
+            
+            // 处理PK投票按钮点击
+            pkVoteBtn.addEventListener('click', function() {
+                if (!selectedPkOption) {
+                    showAlert('vote-alert', 'Please select an option', 'warning');
+                    return;
+                }
+                
+                // 禁用按钮，防止重复提交
+                this.disabled = true;
+                this.textContent = 'Submitting...';
+                
+                // 获取表单并构建表单数据
+                const form = document.getElementById('pkVoteForm');
+                const formData = new FormData(form);
+                
+                // 发送投票请求
+                fetch('/api/vote', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('vote-alert', data.message, 'success');
+                        
+                        // 更新UI显示选中状态和百分比
+                        updateVoteResults(data.data);
+                        
+                        // 隐藏投票按钮
+                        this.style.display = 'none';
+                    } else {
+                        showAlert('vote-alert', data.message, 'danger');
+                        this.disabled = false;
+                        this.textContent = 'Vote';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('vote-alert', 'Vote submission failed, please try again later', 'danger');
+                    this.disabled = false;
+                    this.textContent = 'Vote';
+                });
             });
         }
         
@@ -1048,9 +1178,9 @@
                                         </div>
                                         <div class="comment-text whitespace-pre-wrap">${comment.content}</div>
                                         <div class="comment-actions">
-                                            <button class="btn comment-like-btn like-comment-btn" style="opacity: 0.5; cursor: not-allowed;" data-comment-id="${comment.comment_id}">
-                                                <i class="bi bi-heart"></i> <span class="like-count">0</span>
-                                            </button>
+                                            // <button class="btn comment-like-btn like-comment-btn" style="opacity: 0.5; cursor: not-allowed;" data-comment-id="${comment.comment_id}">
+                                            //     <i class="bi bi-heart"></i> <span class="like-count">0</span>
+                                            // </button>
                                             
                                             <button class="btn comment-delete-btn delete-comment-btn" style="opacity: 1; cursor: pointer;" data-comment-id="${comment.comment_id}">
                                                 <i class="bi bi-trash"></i>
