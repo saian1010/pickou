@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <style>
+    .construction-primary { fill: #ff2442; }
+    .construction-secondary { fill: #ffd0d7; }
+    .construction-accent { fill: #333333; }
+    .construction-light { fill: #f8f8f8; }
+  </style>
+  
+  <!-- Background -->
+  <circle cx="256" cy="256" r="200" class="construction-light" />
+  
+  <!-- Construction elements -->
+  <g transform="translate(100, 160)">
+    <!-- Building/construction icon -->
+    <path d="M256 64.97L96 237.72V416h112V312c0-13.26 10.74-24 24-24s24 10.74 24 24v104h112V237.72L256 64.97z" transform="translate(-80, -50) scale(0.8)" class="construction-secondary" />
+    <path d="M301.17 164.66l-27.29-27.39c-4.57-4.57-10.7-7.27-17.17-7.27s-12.6 2.7-17.17 7.27l-27.27 27.39c-4.6 4.6-7.27 10.82-7.27 17.34v82h96v-82c0-6.52-2.67-12.75-7.27-17.34L301.17 164.66z" transform="translate(-80, -50) scale(0.8)" class="construction-primary" />
+    
+    <!-- Gear icon -->
+    <circle cx="260" cy="100" r="36" class="construction-primary" />
+    <g class="construction-accent">
+      <rect x="256" y="56" width="8" height="25" rx="4" />
+      <rect x="256" y="120" width="8" height="25" rx="4" />
+      <rect x="260" y="56" width="8" height="25" rx="4" transform="rotate(45 260 56)" />
+      <rect x="260" y="120" width="8" height="25" rx="4" transform="rotate(45 260 120)" />
+      <rect x="260" y="56" width="8" height="25" rx="4" transform="rotate(90 260 56)" />
+      <rect x="260" y="120" width="8" height="25" rx="4" transform="rotate(90 260 120)" />
+      <rect x="260" y="56" width="8" height="25" rx="4" transform="rotate(135 260 56)" />
+      <rect x="260" y="120" width="8" height="25" rx="4" transform="rotate(135 260 120)" />
+    </g>
+    
+    <!-- Tools -->
+    <rect x="70" y="130" width="20" height="120" rx="5" transform="rotate(30 70 130)" class="construction-accent" />
+    <circle cx="90" cy="240" r="15" class="construction-primary" />
+  </g>
+  
+  <!-- Safety cone -->
+  <g transform="translate(320, 320)">
+    <path d="M32 0 L64 96 L0 96 Z" class="construction-primary" />
+    <rect x="16" y="32" width="32" height="8" class="construction-light" />
+    <rect x="12" y="56" width="40" height="8" class="construction-light" />
+    <rect x="8" y="80" width="48" height="8" class="construction-light" />
+    <rect x="-10" y="96" width="84" height="16" class="construction-accent" rx="2" />
+  </g>
+</svg> 
