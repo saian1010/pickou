@@ -539,7 +539,7 @@ def list_posts():
                 u.profile_image,
                 (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
                 (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
-                (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_id = p.vote_id) as likes
+                (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes
             FROM posts p 
             LEFT JOIN users u ON p.user_id = u.user_id
             ORDER BY p.created_at DESC
