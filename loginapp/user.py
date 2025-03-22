@@ -1001,7 +1001,16 @@ def api_vote():
         }), 401
     
     post_id = request.form.get('post_id')
-    vote_options = request.form.getlist('options[]')  # 多选投票
+    # 尝试多种方式获取多选投票数据
+    vote_options = request.form.getlist('options[]')
+    if not vote_options:
+        # 如果上面的方式失败，尝试其他可能的名称
+        vote_options = request.form.getlist('options')
+    
+    # 打印表单数据进行调试
+    print("投票表单数据:", request.form)
+    print("多选选项:", vote_options)
+    
     vote_option = request.form.get('option')  # 单选投票
     
     if not post_id:

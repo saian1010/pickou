@@ -150,41 +150,6 @@
                                 {% endfor %}
                                 <div class="vote-total text-center mt-3">
                                     <small>共 <span id="total-vote-count">{{ vote_data.total_votes }}</span> 人参与投票</small>
-                                    {% if 'loggedin' in session %}
-                                        <button class="btn btn-sm revote-btn ms-3" type="button" data-bs-toggle="collapse" data-bs-target="#revoteForm">
-                                            重新投票
-                                        </button>
-                                        
-                                        <div class="collapse mt-3" id="revoteForm">
-                                            <form id="revoteForm" class="revote-form">
-                                                <input type="hidden" name="post_id" value="{{ post.post_id }}">
-                                                {% if vote_data.vote.vote_type == 2 %}
-                                                    <!-- 多选 -->
-                                                    {% for option in vote_data.options %}
-                                                        <div class="vote-option mb-2">
-                                                            <input type="checkbox" name="options[]" 
-                                                                id="revote-option-{{ option.vote_option_id }}" 
-                                                                value="{{ option.vote_option_id }}"
-                                                                {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
-                                                            <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
-                                                        </div>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <!-- 单选 -->
-                                                    {% for option in vote_data.options %}
-                                                        <div class="vote-option mb-2">
-                                                            <input type="radio" name="option" 
-                                                                id="revote-option-{{ option.vote_option_id }}" 
-                                                                value="{{ option.vote_option_id }}"
-                                                                {% if option.vote_option_id in vote_data.user_voted_options %}checked{% endif %}>
-                                                            <label for="revote-option-{{ option.vote_option_id }}">{{ option.title }}</label>
-                                                        </div>
-                                                    {% endfor %}
-                                                {% endif %}
-                                                <button type="button" class="btn vote-btn mt-2 submit-revote-btn">提交</button>
-                                            </form>
-                                        </div>
-                                    {% endif %}
                                 </div>
                             </div>
                             
@@ -862,100 +827,88 @@
             }, 3000);
         }
         
-        // ============ PK 投票功能 ============
-        const pkOptions = document.querySelectorAll('.pk-option');
-        const pkSelectedOption = document.getElementById('pk-selected-option');
-        const pkVoteBtn = document.getElementById('pk-vote-btn');
-        
-        if (pkOptions.length > 0 && pkSelectedOption && pkVoteBtn) {
-            // PK选项点击事件
-            pkOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    // 移除其他选项的选中状态
-                    pkOptions.forEach(opt => opt.classList.remove('active'));
-                    // 添加当前选项的选中状态
-                    this.classList.add('active');
-                    // 设置选中的选项ID
-                    pkSelectedOption.value = this.getAttribute('data-option-id');
-                    // 启用投票按钮
-                    pkVoteBtn.disabled = false;
-                });
-            });
+        // 更新投票结果UI函数
+        function updateVoteResults(data) {
+            // 获取投票结果容器
+            const voteResults = document.getElementById('vote-results');
+            if (!voteResults) return;
             
-            // PK投票提交
-            pkVoteBtn && pkVoteBtn.addEventListener('click', function() {
-                const formData = new FormData(document.getElementById('pkVoteForm'));
-                
-                // 禁用按钮，防止重复提交
-                this.disabled = true;
-                this.textContent = '提交中...';
-                
-                fetch('/api/vote', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showAlert('vote-alert', data.message, 'success');
-                        
-                        // 更新投票结果UI
-                        const options = data.data.options;
-                        const totalVotes = data.data.total_votes;
-                        const userVoted = data.data.user_voted_options;
-                        
-                        // 显示百分比和票数
-                        pkOptions.forEach((optionEl, index) => {
-                            const option = options[index];
-                            const optionId = parseInt(optionEl.getAttribute('data-option-id'));
-                            const isSelected = userVoted.includes(optionId);
-                            
-                            // 更新选中状态
-                            if (isSelected) {
-                                optionEl.classList.add('selected');
-                            }
-                            
-                            // 更新百分比和票数
-                            const percentEl = optionEl.querySelector('.pk-option-percent');
-                            const countEl = optionEl.querySelector('.pk-vote-count');
-                            const barEl = optionEl.querySelector('.pk-option-bar');
-                            
-                            percentEl.textContent = `${option.percent}%`;
-                            countEl.textContent = `(${option.vote_count}票)`;
-                            percentEl.style.display = 'block';
-                            countEl.style.display = 'block';
-                            
-                            // 动画显示进度条
-                            setTimeout(() => {
-                                barEl.style.width = `${option.percent}%`;
-                            }, 100);
-                        });
-                        
-                        // 隐藏投票按钮
-                        pkVoteBtn.style.display = 'none';
-                    } else {
-                        showAlert('vote-alert', data.message, 'danger');
-                        this.disabled = false;
-                        this.textContent = '投票';
+            // 更新总投票人数
+            const totalVoteCount = document.getElementById('total-vote-count');
+            if (totalVoteCount) {
+                totalVoteCount.textContent = data.total_votes;
+            }
+            
+            // 更新每个选项的结果
+            const options = data.options;
+            const userVotedOptions = data.user_voted_options;
+            
+            // 查找所有结果项
+            const resultItems = voteResults.querySelectorAll('.vote-result-item');
+            resultItems.forEach((item, index) => {
+                if (index < options.length) {
+                    const option = options[index];
+                    
+                    // 更新百分比和票数
+                    const percentEl = item.querySelector('.vote-percent');
+                    if (percentEl) {
+                        percentEl.textContent = `${option.percent}% (${option.vote_count}票)`;
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showAlert('vote-alert', '投票失败，请稍后重试', 'danger');
-                    this.disabled = false;
-                    this.textContent = '投票';
-                });
+                    
+                    // 更新进度条
+                    const progressBar = item.querySelector('.progress-bar');
+                    if (progressBar) {
+                        progressBar.style.width = `${option.percent}%`;
+                    }
+                    
+                    // 更新选中状态
+                    const optionId = parseInt(item.getAttribute('data-option-id') || 0);
+                    if (userVotedOptions.includes(optionId)) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                }
             });
         }
         
         // ============ 常规投票功能 ============
         const submitNormalVoteBtn = document.querySelector('.submit-normal-vote-btn');
-        const submitRevoteBtn = document.querySelector('.submit-revote-btn');
         
         // 常规投票提交
         if (submitNormalVoteBtn) {
             submitNormalVoteBtn.addEventListener('click', function() {
-                const formData = new FormData(document.getElementById('normalVoteForm'));
+                const form = document.getElementById('normalVoteForm');
+                const formData = new FormData(form);
+                
+                // 检查是否选择了选项
+                const isMultiSelect = form.querySelector('input[type="checkbox"][name="options[]"]') !== null;
+                
+                if (isMultiSelect) {
+                    // 多选：检查是否至少选择了一个选项
+                    const checkboxes = form.querySelectorAll('input[type="checkbox"][name="options[]"]:checked');
+                    if (checkboxes.length === 0) {
+                        showAlert('vote-alert', '请至少选择一个选项', 'warning');
+                        return;
+                    }
+                    
+                    // 处理多选数据
+                    formData.delete('options[]');
+                    checkboxes.forEach(checkbox => {
+                        formData.append('options', checkbox.value);
+                    });
+                    
+                    console.log('提交多选投票数据:', Array.from(formData.entries()));
+                } else {
+                    // 单选：检查是否选择了选项
+                    const selectedOption = form.querySelector('input[type="radio"][name="option"]:checked');
+                    if (!selectedOption) {
+                        showAlert('vote-alert', '请选择一个选项', 'warning');
+                        return;
+                    }
+                    
+                    console.log('提交单选投票数据:', Array.from(formData.entries()));
+                }
                 
                 // 禁用按钮，防止重复提交
                 this.disabled = true;
