@@ -536,13 +536,25 @@ def me():
             WHERE p.user_id = %s;
         ''', (user_id,))
         likes_result = cursor.fetchone()
-        likes_count = likes_result['likes_count'] if likes_result else 0
+        likes_received = likes_result['likes_count'] if likes_result else 0
+        
+        # Get likes given count (posts the user has liked)
+        cursor.execute('''
+            SELECT COUNT(*) as likes_given_count
+            FROM likes
+            WHERE user_id = %s;
+        ''', (user_id,))
+        likes_given_result = cursor.fetchone()
+        likes_given = likes_given_result['likes_given_count'] if likes_given_result else 0
+        
+        # Total likes count (both given and received)
+        total_likes = likes_given
         
         # Create stats dictionary
         user_stats = {
             'following_count': following_count,
             'followers_count': followers_count,
-            'likes_count': likes_count
+            'likes_count': total_likes
         }
 
     return render_template('me.html', profile=profile, user_stats=user_stats)
@@ -885,7 +897,6 @@ def create_posts():
         # Validate input
         if not title or not content:
             flash('Please fill in all required fields')
-            return render_template('create.html')
             
         if len(title) > 100:
             flash('Title cannot exceed 100 characters')

@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // 应用数据到模板
             postElement.querySelector('.post-image').src = imageUrl;
             postElement.querySelector('.post-title').textContent = content;
-            postElement.querySelector('.post-avatar').src = post.user_avatar || post.profile_image || 'https://via.placeholder.com/50';
+            postElement.querySelector('.post-avatar').src = post.user_avatar || post.profile_image;
             postElement.querySelector('.post-username').textContent = username;
             postElement.querySelector('.likes-count').textContent = post.likes || 0;
             

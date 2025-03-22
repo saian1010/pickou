@@ -12,13 +12,13 @@
         </div>
         
         <!-- Flash Messages -->
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
         <!-- Content Creation Form -->
         <form id="createForm" method="POST" action="{{ url_for('create_posts') }}" enctype="multipart/form-data">
@@ -26,12 +26,12 @@
             <input type="hidden" id="pollDataField" name="pollData" value="">
             
             <!-- Title Field -->
-            <div class="form-group mb-3">
-                <input type="text" 
+        <div class="form-group mb-3">
+            <input type="text" 
                        class="form-control xhs-input" 
                        id="title" 
                        name="title" 
-                       required 
+                   required 
                        maxlength="100"
                        placeholder="Title (required)" 
                        pattern=".{2,100}"
@@ -39,16 +39,16 @@
                 <div class="xhs-form-text">
                     <span id="title-length">0</span>/100
                 </div>
-            </div>
-            
+        </div>
+        
             <!-- Description Field -->
-            <div class="form-group mb-3">
+        <div class="form-group mb-3">
                 <textarea class="form-control xhs-textarea" 
                           id="content" 
                           name="content" 
-                          rows="5" 
-                          required
-                          minlength="10"
+                      rows="5" 
+                      required
+                      minlength="10"
                           maxlength="5000"
                           placeholder="Share your thoughts... (required)"></textarea>
                 <div class="xhs-form-text">
@@ -131,15 +131,15 @@
                             <button type="button" id="savePollBtn" class="btn xhs-btn-primary">Save</button>
                         </div>
                     </div>
-                </div>
             </div>
-            
-            <!-- Form Actions -->
+        </div>
+        
+        <!-- Form Actions -->
             <div class="xhs-form-actions">
                 <button type="button" id="draftBtn" class="btn xhs-btn-light me-2">Save Draft</button>
                 <button type="submit" id="publishBtn" class="btn xhs-btn-primary">Publish</button>
-            </div>
-        </form>
+        </div>
+    </form>
     </div>
 </div>
 
@@ -692,8 +692,8 @@ function validateForm() {
     const publishBtn = document.getElementById('publishBtn');
     
     // Only title and content are required, poll is optional
-    if (title.length >= 2 && title.length <= 100 && 
-        content.length >= 10 && content.length <= 5000) {
+    if (title.length >= 1 && title.length <= 100 && 
+        content.length >= 1 && content.length <= 5000) {
         publishBtn.disabled = false;
     } else {
         publishBtn.disabled = true;
@@ -709,12 +709,12 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
     const content = document.getElementById('content').value.trim();
     
     // Validate required fields
-    if (title.length < 2 || title.length > 100) {
+    if (title.length < 1 || title.length > 100) {
         alert('Title must be between 2-100 characters');
         return;
     }
     
-    if (content.length < 10 || content.length > 5000) {
+    if (content.length < 1 || content.length > 5000) {
         alert('Content must be between 10-5000 characters');
         return;
     }
