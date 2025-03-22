@@ -676,7 +676,7 @@ def sub_list_posts():
         FROM posts p
         JOIN users u ON p.user_id = u.user_id
         LEFT JOIN post_images pi ON p.post_id = pi.post_id
-        JOIN follows f ON p.user_id = f.user_id AND f.user_id = %s
+        JOIN follows f ON p.user_id = f.user_id AND f.follower_id = %s
         ORDER BY p.created_at DESC
         LIMIT %s OFFSET %s;
         '''
@@ -689,7 +689,7 @@ def sub_list_posts():
         cursor.execute('''
             SELECT COUNT(*) as total 
             FROM posts p 
-            JOIN follows f ON p.user_id = f.follower_id AND f.user_id = %s
+            JOIN follows f ON p.user_id = f.user_id AND f.follower_id = %s
         ''', (current_user_id,))
         total_count = cursor.fetchone()['total']
         
