@@ -33,7 +33,7 @@
             </div>
             
             <!-- 关注按钮和分享图标 -->
-            <div>
+            <div class="d-flex align-items-center">
                 {% if not is_author and 'loggedin' in session %}
                     <button class="btn follow-btn {% if is_following %}followed{% endif %}" data-user-id="{{ post.author_id }}">
                         {% if is_following %}
@@ -357,12 +357,26 @@
         color: white;
         border-radius: 20px;
         font-size: 13px;
-        padding: 4px 12px;
+        padding: 4px 16px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     .follow-btn:hover {
         background-color: #e61e39;
         color: white;
+    }
+    
+    .follow-btn.followed {
+        background-color: #f5f5f5;
+        color: #333;
+    }
+    
+    .follow-btn.followed:hover {
+        background-color: #e8e8e8;
+        color: #333;
     }
     
     .share-btn {
@@ -762,26 +776,6 @@
         font-size: 40px;
         margin-bottom: 10px;
         opacity: 0.3;
-    }
-    
-    /* 添加到现有的样式部分 */
-    .follow-btn.followed {
-        background-color: #e0e0e0;
-        color: #333333;
-    }
-    
-    .follow-btn.followed:hover {
-        background-color: #ff6b6b;
-        color: white;
-    }
-    
-    .follow-btn.followed:hover:before {
-        display: inline;
-    }
-    
-    .follow-btn.followed:hover i,
-    .follow-btn.followed:hover span {
-        display: none;
     }
 </style>
 
