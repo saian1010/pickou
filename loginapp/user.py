@@ -514,7 +514,7 @@ def me():
         cursor.execute('''
             SELECT COUNT(*) as following_count
             FROM follows
-            WHERE user_id = %s;
+            WHERE follower_id = %s;
         ''', (user_id,))
         following_result = cursor.fetchone()
         following_count = following_result['following_count'] if following_result else 0
@@ -523,7 +523,7 @@ def me():
         cursor.execute('''
             SELECT COUNT(*) as followers_count
             FROM follows
-            WHERE follower_id = %s;
+            WHERE user_id = %s;
         ''', (user_id,))
         followers_result = cursor.fetchone()
         followers_count = followers_result['followers_count'] if followers_result else 0
