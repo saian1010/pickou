@@ -6,8 +6,52 @@
 {% set active_page = 'messages' %}
 
 {% block content %}
-<div class="container">
-    <div>messages</div>
-
+<div class="container messages-container">
+    <div class="under-construction-card">
+        <img src="{{ url_for('static', filename='img/under-construction.svg') }}" alt="Under Construction" class="construction-image">
+        <h2>Under Construction</h2>
+        <p>We're working hard to build an amazing messaging experience for you.</p>
+        <p>Please check back soon!</p>
+    </div>
 </div>
+
+<style>
+    .messages-container {
+        max-width: 800px;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 200px);
+    }
+    
+    .under-construction-card {
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        padding: 40px 30px;
+        text-align: center;
+        max-width: 500px;
+        width: 100%;
+    }
+    
+    .construction-image {
+        width: 180px;
+        height: auto;
+        margin-bottom: 30px;
+    }
+    
+    .under-construction-card h2 {
+        color: var(--xhs-primary, #ff2442);
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+    
+    .under-construction-card p {
+        color: #505050;
+        font-size: 16px;
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+</style>
 {% endblock %}
