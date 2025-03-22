@@ -588,12 +588,11 @@ def list_posts():
         query = '''
         SELECT p.post_id, p.title, p.content, p.created_at, p.updated_at,
                u.user_id, u.username, u.profile_image,
-               pi.image_path as image_url,
+               (SELECT image_path FROM post_images WHERE post_id = p.post_id ORDER BY created_at LIMIT 1) as image_url,
                (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes,
                (SELECT COUNT(*) > 0 FROM likes ul WHERE ul.post_id = p.post_id AND ul.user_id = %s) as user_liked
         FROM posts p
         JOIN users u ON p.user_id = u.user_id
-        LEFT JOIN post_images pi ON p.post_id = pi.post_id
         ORDER BY p.created_at DESC
         LIMIT %s OFFSET %s;
         '''
@@ -670,12 +669,11 @@ def sub_list_posts():
         query = '''
         SELECT p.post_id, p.title, p.content, p.created_at, p.updated_at,
                u.user_id, u.username, u.profile_image,
-               pi.image_path as image_url,
+               (SELECT image_path FROM post_images WHERE post_id = p.post_id ORDER BY created_at LIMIT 1) as image_url,
                (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes,
                (SELECT COUNT(*) > 0 FROM likes ul WHERE ul.post_id = p.post_id AND ul.user_id = %s) as user_liked
         FROM posts p
         JOIN users u ON p.user_id = u.user_id
-        LEFT JOIN post_images pi ON p.post_id = pi.post_id
         JOIN follows f ON p.user_id = f.user_id AND f.follower_id = %s
         ORDER BY p.created_at DESC
         LIMIT %s OFFSET %s;
