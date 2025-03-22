@@ -1,6 +1,6 @@
 {% extends "userbase.html" %}
 {% set active_page = 'create' %}
-{% block title %}创建笔记{% endblock %}
+{% block title %}Create Post{% endblock %}
 
 {% block content %}
 <div class="container mt-3 mb-5">
@@ -8,7 +8,7 @@
     <div class="xhs-create-container">
         <!-- Tab Navigation -->
         <div class="xhs-create-tabs mb-3">
-            <div class="tab-active">笔记</div>
+            <div class="tab-active">Post</div>
         </div>
         
         <!-- Flash Messages -->
@@ -22,7 +22,7 @@
 
         <!-- Content Creation Form -->
         <form id="createForm" method="POST" action="{{ url_for('create_posts') }}" enctype="multipart/form-data">
-            <!-- 添加隐藏的投票数据字段 -->
+            <!-- Hidden poll data field -->
             <input type="hidden" id="pollDataField" name="pollData" value="">
             
             <!-- Title Field -->
@@ -33,9 +33,9 @@
                        name="title" 
                        required 
                        maxlength="100"
-                       placeholder="标题（必填）" 
+                       placeholder="Title (required)" 
                        pattern=".{2,100}"
-                       title="标题必须在2到100个字符之间">
+                       title="Title must be between 2 and 100 characters">
                 <div class="xhs-form-text">
                     <span id="title-length">0</span>/100
                 </div>
@@ -50,7 +50,7 @@
                           required
                           minlength="10"
                           maxlength="5000"
-                          placeholder="分享你的想法...（必填）"></textarea>
+                          placeholder="Share your thoughts... (required)"></textarea>
                 <div class="xhs-form-text">
                     <span id="content-length">0</span>/5000
                 </div>
@@ -61,7 +61,7 @@
                 <div class="xhs-image-upload" id="imageUploadArea">
                     <div class="xhs-upload-placeholder" id="uploadPlaceholder">
                         <i class="bi bi-image"></i>
-                        <div>添加图片</div>
+                        <div>Add Images</div>
                     </div>
                     <input type="file" id="imageUpload" name="images[]" accept="image/*" multiple style="display: none;">
                     <div id="imagePreviewContainer" class="xhs-image-preview-container"></div>
@@ -71,8 +71,8 @@
             <!-- Poll Section (initially hidden) -->
             <div id="pollContainer" class="xhs-poll-container mb-3" style="display: none;">
                 <div class="xhs-poll-header">
-                    <h5>投票</h5>
-                    <button type="button" class="xhs-edit-btn" id="editPollBtn">编辑</button>
+                    <h5>Poll</h5>
+                    <button type="button" class="xhs-edit-btn" id="editPollBtn">Edit</button>
                 </div>
                 <div id="pollPreview" class="xhs-poll-preview"></div>
             </div>
@@ -81,7 +81,7 @@
             <div class="xhs-feature-buttons mb-3">
                 <button type="button" id="createPollBtn" class="xhs-feature-btn">
                     <i class="bi bi-bar-chart"></i>
-                    <span>投票</span>
+                    <span>Poll</span>
                 </button>
             </div>
             
@@ -90,18 +90,18 @@
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="pollModalLabel">创建投票</h5>
+                            <h5 class="modal-title" id="pollModalLabel">Create Poll</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <div class="mb-3">
-                                <label for="pollQuestion" class="form-label">投票问题</label>
-                                <input type="text" class="form-control" id="pollQuestion" placeholder="请输入投票问题">
+                                <label for="pollQuestion" class="form-label">Poll Question</label>
+                                <input type="text" class="form-control" id="pollQuestion" placeholder="Enter poll question">
                             </div>
                             <div id="pollOptionsContainer">
                                 <div class="mb-2 poll-option-input">
                                     <div class="input-group">
-                                        <input type="text" class="form-control poll-option" placeholder="选项1">
+                                        <input type="text" class="form-control poll-option" placeholder="Option 1">
                                         <!-- <button class="btn btn-outline-secondary delete-option" type="button" disabled>
                                             <i class="bi bi-x"></i>
                                         </button> -->
@@ -109,7 +109,7 @@
                                 </div>
                                 <div class="mb-2 poll-option-input">
                                     <div class="input-group">
-                                        <input type="text" class="form-control poll-option" placeholder="选项2">
+                                        <input type="text" class="form-control poll-option" placeholder="Option 2">
                                         <!-- <button class="btn btn-outline-secondary delete-option" type="button" disabled>
                                             <i class="bi bi-x"></i>
                                         </button> -->
@@ -117,18 +117,18 @@
                                 </div>
                             </div>
                             <button type="button" id="addOptionBtn" class="btn btn-sm xhs-btn-light mt-2">
-                                <i class="bi bi-plus"></i> 添加选项
+                                <i class="bi bi-plus"></i> Add Option
                             </button>
                             <div class="form-check mt-3">
                                 <input class="form-check-input" type="checkbox" id="allowMultipleVotes">
                                 <label class="form-check-label" for="allowMultipleVotes">
-                                    允许多选
+                                    Allow Multiple Choices
                                 </label>
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                            <button type="button" id="savePollBtn" class="btn xhs-btn-primary">保存</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" id="savePollBtn" class="btn xhs-btn-primary">Save</button>
                         </div>
                     </div>
                 </div>
@@ -136,8 +136,8 @@
             
             <!-- Form Actions -->
             <div class="xhs-form-actions">
-                <button type="button" id="draftBtn" class="btn xhs-btn-light me-2">存草稿</button>
-                <button type="submit" id="publishBtn" class="btn xhs-btn-primary">发布</button>
+                <button type="button" id="draftBtn" class="btn xhs-btn-light me-2">Save Draft</button>
+                <button type="submit" id="publishBtn" class="btn xhs-btn-primary">Publish</button>
             </div>
         </form>
     </div>
@@ -468,9 +468,9 @@ document.getElementById('addOptionBtn').addEventListener('click', function() {
     const optionsContainer = document.getElementById('pollOptionsContainer');
     const optionCount = optionsContainer.querySelectorAll('.poll-option-input').length;
     
-    // 限制最多6个选项
+    // Limit to maximum 6 options
     if (optionCount >= 6) {
-        alert('最多只能添加6个选项');
+        alert('You can add a maximum of 6 options');
         return;
     }
     
@@ -478,7 +478,7 @@ document.getElementById('addOptionBtn').addEventListener('click', function() {
     optionDiv.className = 'mb-2 poll-option-input';
     optionDiv.innerHTML = `
         <div class="input-group">
-            <input type="text" class="form-control poll-option" placeholder="选项${optionCount + 1}">
+            <input type="text" class="form-control poll-option" placeholder="Option ${optionCount + 1}">
             <button class="btn btn-outline-secondary delete-option" type="button">
                 <i class="bi bi-x"></i>
             </button>
@@ -487,7 +487,7 @@ document.getElementById('addOptionBtn').addEventListener('click', function() {
     
     optionsContainer.appendChild(optionDiv);
     
-    // 当选项数量达到6个时，禁用添加按钮
+    // When option count reaches 6, disable the add button
     if (optionCount + 1 >= 6) {
         document.getElementById('addOptionBtn').disabled = true;
     }
@@ -497,7 +497,7 @@ document.getElementById('addOptionBtn').addEventListener('click', function() {
     deleteBtn.addEventListener('click', function() {
         optionDiv.remove();
         
-        // 启用添加按钮
+        // Enable add button
         document.getElementById('addOptionBtn').disabled = false;
         
         // Update placeholders
@@ -506,7 +506,7 @@ document.getElementById('addOptionBtn').addEventListener('click', function() {
 });
 
 function enableDeleteButtons() {
-    // 只启用非默认选项的删除按钮（第3个及以后的选项）
+    // Only enable delete buttons for non-default options (3rd option onwards)
     const deleteButtons = document.querySelectorAll('.delete-option');
     for (let i = 2; i < deleteButtons.length; i++) {
         deleteButtons[i].disabled = false;
@@ -521,14 +521,14 @@ function disableDeleteButtons() {
 
 function updateOptionPlaceholders() {
     document.querySelectorAll('.poll-option').forEach((input, index) => {
-        input.placeholder = `选项${index + 1}`;
+        input.placeholder = `Option ${index + 1}`;
     });
 }
 
 document.getElementById('savePollBtn').addEventListener('click', function() {
     const question = document.getElementById('pollQuestion').value.trim();
     if (!question) {
-        alert('请输入投票问题');
+        alert('Please enter a poll question');
         return;
     }
     
@@ -541,7 +541,7 @@ document.getElementById('savePollBtn').addEventListener('click', function() {
     });
     
     if (options.length < 2) {
-        alert('至少需要2个投票选项');
+        alert('At least 2 poll options are required');
         return;
     }
     
@@ -560,7 +560,7 @@ document.getElementById('savePollBtn').addEventListener('click', function() {
     // Show poll container
     document.getElementById('pollContainer').style.display = 'block';
     
-    // 隐藏投票按钮
+    // Hide poll button
     document.getElementById('createPollBtn').style.display = 'none';
     
     // Close modal
@@ -574,22 +574,22 @@ function updatePollPreview() {
     const previewContainer = document.getElementById('pollPreview');
     
     if (!pollData) {
-        // 没有投票数据，隐藏投票容器，显示投票按钮
+        // No poll data, hide poll container, show poll button
         document.getElementById('pollContainer').style.display = 'none';
         document.getElementById('createPollBtn').style.display = 'block';
         return;
     }
     
-    // 清空预览区域
+    // Clear preview area
     previewContainer.innerHTML = '';
     
-    // 添加问题
+    // Add question
     const questionElement = document.createElement('div');
     questionElement.className = 'fw-bold mb-2';
     questionElement.textContent = pollData.question;
     previewContainer.appendChild(questionElement);
     
-    // 添加选项
+    // Add options
     pollData.options.forEach(option => {
         const optionElement = document.createElement('div');
         optionElement.className = 'xhs-poll-option';
@@ -597,37 +597,37 @@ function updatePollPreview() {
         previewContainer.appendChild(optionElement);
     });
     
-    // 多选指示器
+    // Multiple choice indicator
     if (pollData.allowMultiple) {
         const multipleElement = document.createElement('div');
         multipleElement.className = 'small text-muted mt-2';
-        multipleElement.textContent = '允许多选';
+        multipleElement.textContent = 'Multiple choices allowed';
         previewContainer.appendChild(multipleElement);
     }
     
-    // 添加删除投票按钮
+    // Add delete poll button
     const deleteRow = document.createElement('div');
     deleteRow.className = 'd-flex justify-content-end mt-2';
     
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn btn-sm btn-link text-danger';
-    deleteBtn.textContent = '删除投票';
+    deleteBtn.textContent = 'Delete Poll';
     deleteBtn.addEventListener('click', function() {
-        // 删除投票数据
+        // Delete poll data
         pollData = null;
         
-        // 更新预览（会隐藏投票容器）
+        // Update preview (will hide poll container)
         updatePollPreview();
         
-        // 重新验证表单
+        // Revalidate form
         validateForm();
     });
     
     deleteRow.appendChild(deleteBtn);
     previewContainer.appendChild(deleteRow);
     
-    // 显示投票容器，隐藏投票按钮
+    // Show poll container, hide poll button
     document.getElementById('pollContainer').style.display = 'block';
     document.getElementById('createPollBtn').style.display = 'none';
 }
@@ -646,12 +646,12 @@ document.getElementById('editPollBtn').addEventListener('click', function() {
             const optionDiv = document.createElement('div');
             optionDiv.className = 'mb-2 poll-option-input';
             
-            // 前两个选项不能删除，后面的可以删除
+            // First two options cannot be deleted, others can be
             const isDefaultOption = index < 2;
             
             optionDiv.innerHTML = `
                 <div class="input-group">
-                    <input type="text" class="form-control poll-option" placeholder="选项${index + 1}" value="${option}">
+                    <input type="text" class="form-control poll-option" placeholder="Option ${index + 1}" value="${option}">
                     <button class="btn btn-outline-secondary delete-option" type="button" ${isDefaultOption ? 'disabled' : ''}>
                         <i class="bi bi-x"></i>
                     </button>
@@ -665,7 +665,7 @@ document.getElementById('editPollBtn').addEventListener('click', function() {
                 deleteBtn.addEventListener('click', function() {
                     optionDiv.remove();
                     
-                    // 重新启用添加按钮
+                    // Re-enable add button
                     document.getElementById('addOptionBtn').disabled = false;
                     
                     // Update placeholders
@@ -674,7 +674,7 @@ document.getElementById('editPollBtn').addEventListener('click', function() {
             }
         });
         
-        // 设置添加按钮状态
+        // Set add button status
         document.getElementById('addOptionBtn').disabled = pollData.options.length >= 6;
         
         // Set multiple choice checkbox
@@ -691,7 +691,7 @@ function validateForm() {
     const content = document.getElementById('content').value.trim();
     const publishBtn = document.getElementById('publishBtn');
     
-    // 只需要标题和内容满足要求即可发布，投票是可选的
+    // Only title and content are required, poll is optional
     if (title.length >= 2 && title.length <= 100 && 
         content.length >= 10 && content.length <= 5000) {
         publishBtn.disabled = false;
@@ -702,102 +702,107 @@ function validateForm() {
 
 // Publishing action
 document.getElementById('createForm').addEventListener('submit', function(e) {
-    // 阻止默认提交以便我们处理数据
+    // Prevent default submission so we can process data
     e.preventDefault();
     
     const title = document.getElementById('title').value.trim();
     const content = document.getElementById('content').value.trim();
     
-    // 验证必填字段
+    // Validate required fields
     if (title.length < 2 || title.length > 100) {
-        alert('标题必须在2-100个字符之间');
+        alert('Title must be between 2-100 characters');
         return;
     }
     
     if (content.length < 10 || content.length > 5000) {
-        alert('内容必须在10-5000个字符之间');
+        alert('Content must be between 10-5000 characters');
         return;
     }
     
     try {
-        // 将投票数据设置到隐藏字段中
+        // Set poll data to hidden field
         const pollDataField = document.getElementById('pollDataField');
         if (pollData) {
-            console.log('投票数据详情:', {
+            console.log('Poll data details:', {
                 question: pollData.question,
                 options: pollData.options,
                 allowMultiple: pollData.allowMultiple
             });
             pollDataField.value = JSON.stringify(pollData);
-            console.log('设置投票数据成功，JSON字符串长度:', pollDataField.value.length);
+            console.log('Poll data set successfully, JSON string length:', pollDataField.value.length);
         } else {
             pollDataField.value = JSON.stringify(null);
-            console.log('无投票数据，设置为null');
+            console.log('No poll data, set to null');
         }
         
-        console.log('表单提交中，数据:', {
+        console.log('Form submitting, data:', {
             title: title,
             content: content,
             hasPollData: pollData !== null,
             pollDataFieldValue: pollDataField.value && pollDataField.value.substring(0, 50) + '...'
         });
         
-        // 提交表单
+        // Submit form
         this.submit();
     } catch (error) {
-        console.error('提交表单时出错:', error);
-        alert('提交失败，请重试');
+        console.error('Error submitting form:', error);
+        alert('Submission failed, please try again');
     }
 });
 
-// Draft saving action
+// Draft saving function
 document.getElementById('draftBtn').addEventListener('click', function() {
-    // Here we would normally save a draft
-    // For this UI prototype, we'll just log the data
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
     
     const draftData = {
-        title: document.getElementById('title').value,
-        content: document.getElementById('content').value,
-        pollData: pollData
+        title: title,
+        content: content,
+        pollData: pollData,
+        timestamp: new Date().toISOString()
     };
     
-    // Save to local storage
     localStorage.setItem('contentDraft', JSON.stringify(draftData));
     
-    alert('草稿已保存');
+    alert('Draft saved');
 });
 
-// Load draft if exists
+// Load draft on page load
 document.addEventListener('DOMContentLoaded', function() {
-    const savedDraft = localStorage.getItem('contentDraft');
-    
-    if (savedDraft) {
+    const draftJson = localStorage.getItem('contentDraft');
+    if (draftJson) {
         try {
-            const draftData = JSON.parse(savedDraft);
+            const draft = JSON.parse(draftJson);
             
-            // Load title and content
-            if (draftData.title) {
-                document.getElementById('title').value = draftData.title;
-                document.getElementById('title-length').textContent = draftData.title.length;
+            if (draft.title) {
+                document.getElementById('title').value = draft.title;
+                document.getElementById('title-length').textContent = draft.title.length;
             }
             
-            if (draftData.content) {
-                document.getElementById('content').value = draftData.content;
-                document.getElementById('content-length').textContent = draftData.content.length;
+            if (draft.content) {
+                document.getElementById('content').value = draft.content;
+                document.getElementById('content-length').textContent = draft.content.length;
             }
             
-            // Load poll data if exists
-            if (draftData.pollData) {
-                pollData = draftData.pollData;
+            if (draft.pollData) {
+                pollData = draft.pollData;
                 updatePollPreview();
-                document.getElementById('pollContainer').style.display = 'block';
-                // 隐藏投票按钮
-                document.getElementById('createPollBtn').style.display = 'none';
             }
             
-            // Validate form
             validateForm();
             
+            const loadTime = new Date(draft.timestamp || Date.now());
+            const timeString = loadTime.toLocaleString();
+            
+            const draftNotice = document.createElement('div');
+            draftNotice.className = 'alert alert-info alert-dismissible fade show';
+            draftNotice.innerHTML = `
+                <strong>Draft loaded</strong> from ${timeString}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            const container = document.querySelector('.xhs-create-container');
+            container.insertBefore(draftNotice, container.firstChild);
         } catch (e) {
             console.error('Error loading draft:', e);
         }

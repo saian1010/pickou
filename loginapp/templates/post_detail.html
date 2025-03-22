@@ -254,9 +254,9 @@
                                 </div>
                                 <div class="comment-text whitespace-pre-wrap">{{ comment.content }}</div>
                                 <div class="comment-actions">
-                                    <button class="btn comment-like-btn like-comment-btn" style="opacity: 0.5; cursor: not-allowed;" data-comment-id="{{ comment.comment_id }}">
+                                    <!-- <button class="btn comment-like-btn like-comment-btn" style="opacity: 0.5; cursor: not-allowed;" data-comment-id="{{ comment.comment_id }}">
                                         <i class="bi bi-heart"></i> <span class="like-count">0</span>
-                                    </button>
+                                    </button> -->
                                     
                                     {% if 'loggedin' in session and current_user.user_id == comment.user_id %}
                                     <button class="btn comment-delete-btn delete-comment-btn" style="opacity: 1; cursor: pointer;" data-comment-id="{{ comment.comment_id }}">

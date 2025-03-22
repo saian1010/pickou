@@ -19,22 +19,22 @@
             </div>
             <div class="user-info">
                 <h4 class="username">{{ session.username }}</h4>
-                <div class="user-id">User ID: {{ session.user_id }}</div>
+                <div class="user-id">Pickou ID: {{ session.user_id }}</div>
                 <div class="user-desc mt-2">This user hasn't written a bio yet</div>
             </div>
         </div>
         
         <div class="user-stats">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">{{ user_stats.following_count }}</div>
                 <div class="stat-label">Following</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">{{ user_stats.followers_count }}</div>
                 <div class="stat-label">Followers</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">{{ user_stats.likes_count }}</div>
                 <div class="stat-label">Likes & Saves</div>
             </div>
         </div>
@@ -63,6 +63,7 @@
         </a>
     </div>
     
+
 </div>
 
 <style>

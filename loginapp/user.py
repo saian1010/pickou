@@ -497,16 +497,54 @@ def me():
     if 'loggedin' not in session:
         return redirect(url_for('login'))
 
+    user_id = session['user_id']
+    
     with db.get_cursor() as cursor:
+        # Get user profile information
         cursor.execute('''
             SELECT username, email, first_name, last_name, 
                    role, status, profile_image, user_id
             FROM users 
             WHERE user_id = %s;
-        ''', (session['user_id'],))
+        ''', (user_id,))
         profile = cursor.fetchone()
+        
+        # Get following count (people the user follows)
+        cursor.execute('''
+            SELECT COUNT(*) as following_count
+            FROM follows
+            WHERE user_id = %s;
+        ''', (user_id,))
+        following_result = cursor.fetchone()
+        following_count = following_result['following_count'] if following_result else 0
+        
+        # Get followers count (people who follow the user)
+        cursor.execute('''
+            SELECT COUNT(*) as followers_count
+            FROM follows
+            WHERE follower_id = %s;
+        ''', (user_id,))
+        followers_result = cursor.fetchone()
+        followers_count = followers_result['followers_count'] if followers_result else 0
+        
+        # Get likes received count (likes on user's posts)
+        cursor.execute('''
+            SELECT COUNT(*) as likes_count
+            FROM likes l
+            JOIN posts p ON l.post_id = p.post_id
+            WHERE p.user_id = %s;
+        ''', (user_id,))
+        likes_result = cursor.fetchone()
+        likes_count = likes_result['likes_count'] if likes_result else 0
+        
+        # Create stats dictionary
+        user_stats = {
+            'following_count': following_count,
+            'followers_count': followers_count,
+            'likes_count': likes_count
+        }
 
-    return render_template('me.html', profile=profile)
+    return render_template('me.html', profile=profile, user_stats=user_stats)
 
 
 @app.route('/subscription')
