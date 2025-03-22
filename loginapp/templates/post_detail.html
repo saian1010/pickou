@@ -289,14 +289,14 @@
                                 </div>
                                 <div class="comment-text whitespace-pre-wrap">{{ comment.content }}</div>
                                 <div class="comment-actions">
-                                    <button class="btn comment-like-btn like-comment-btn" data-comment-id="{{ comment.comment_id }}">
-                                        <i class="bi bi-heart"></i> <span class="like-count">{{ comment.likes }}</span>
+                                    <button class="btn comment-like-btn like-comment-btn" style="opacity: 0.5; cursor: not-allowed;" data-comment-id="{{ comment.comment_id }}">
+                                        <i class="bi bi-heart"></i> <span class="like-count">0</span>
                                     </button>
                                     
                                     {% if 'loggedin' in session and current_user.user_id == comment.user_id %}
-                                        <button class="btn comment-delete-btn delete-comment-btn" data-comment-id="{{ comment.comment_id }}">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                    <button class="btn comment-delete-btn delete-comment-btn" style="opacity: 1; cursor: pointer;" data-comment-id="{{ comment.comment_id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                     {% endif %}
                                 </div>
                             </div>
@@ -770,10 +770,17 @@
         font-size: 12px;
         padding: 0;
         margin-right: 15px;
+        opacity: 0.5;
+        cursor: not-allowed;
     }
     
     .comment-like-btn:hover {
         color: var(--xhs-primary);
+    }
+    
+    .comment-delete-btn {
+        opacity: 1;
+        cursor: pointer;
     }
     
     .comment-delete-btn:hover {
@@ -1026,6 +1033,201 @@
                 });
             });
         }
+        
+        // ============ 评论功能 ============
+        const submitCommentBtn = document.getElementById('submitComment');
+        const commentForm = document.getElementById('commentForm');
+        const commentsContainer = document.getElementById('commentsContainer');
+        const noCommentsMessage = document.getElementById('noCommentsMessage');
+        
+        if (submitCommentBtn && commentForm) {
+            submitCommentBtn.addEventListener('click', function() {
+                // 获取评论内容
+                const commentInput = commentForm.querySelector('input[name="content"]');
+                const content = commentInput.value.trim();
+                
+                if (!content) {
+                    showAlert('commentAlert', '请输入评论内容', 'warning');
+                    return;
+                }
+                
+                // 禁用按钮，防止重复提交
+                this.disabled = true;
+                this.textContent = '发送中...';
+                
+                // 创建FormData对象
+                const formData = new FormData(commentForm);
+                
+                // 发送评论请求
+                fetch('/api/comments', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 显示成功消息
+                        showAlert('commentAlert', data.message, 'success');
+                        
+                        // 清空评论输入框
+                        commentInput.value = '';
+                        
+                        // 更新评论计数
+                        const commentsCountEl = document.querySelector('.comments-count');
+                        const currentCount = parseInt(commentsCountEl.textContent || '0');
+                        commentsCountEl.textContent = currentCount + 1;
+                        
+                        // 添加新评论到评论列表
+                        const comment = data.data;
+                        
+                        // 如果没有评论，移除"没有评论"的提示
+                        if (noCommentsMessage) {
+                            noCommentsMessage.style.display = 'none';
+                        }
+                        
+                        // 创建评论HTML
+                        const commentHtml = `
+                            <div class="comment-item" id="comment-${comment.comment_id}">
+                                <div class="d-flex">
+                                    ${comment.profile_image 
+                                        ? `<img src="/profile/image/${comment.profile_image}" class="comment-avatar" alt="${comment.username}">`
+                                        : `<div class="comment-avatar-placeholder">${comment.username[0].toUpperCase()}</div>`
+                                    }
+                                    
+                                    <div class="comment-content">
+                                        <div class="comment-header">
+                                            <span class="comment-username">${comment.username}</span>
+                                            <span class="comment-time">${comment.created_at_formatted}</span>
+                                        </div>
+                                        <div class="comment-text whitespace-pre-wrap">${comment.content}</div>
+                                        <div class="comment-actions">
+                                            <button class="btn comment-like-btn like-comment-btn" style="opacity: 0.5; cursor: not-allowed;" data-comment-id="${comment.comment_id}">
+                                                <i class="bi bi-heart"></i> <span class="like-count">0</span>
+                                            </button>
+                                            
+                                            <button class="btn comment-delete-btn delete-comment-btn" style="opacity: 1; cursor: pointer;" data-comment-id="${comment.comment_id}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // 将新评论添加到评论列表开头
+                        commentsContainer.insertAdjacentHTML('afterbegin', commentHtml);
+                        
+                        // 为新评论添加事件监听器
+                        const newComment = document.getElementById(`comment-${comment.comment_id}`);
+                        if (newComment) {
+                            const likeBtn = newComment.querySelector('.like-comment-btn');
+                            const deleteBtn = newComment.querySelector('.delete-comment-btn');
+                            
+                            // 如果有点赞按钮事件处理程序，在这里添加
+                            // if (likeBtn && typeof addLikeEventListener === 'function') {
+                            //     addLikeEventListener(likeBtn);
+                            // }
+                            
+                            // 添加删除按钮事件处理程序
+                            if (deleteBtn) {
+                                addDeleteEventListener(deleteBtn);
+                            }
+                        }
+                    } else {
+                        showAlert('commentAlert', data.message, 'danger');
+                    }
+                    
+                    // 重新启用按钮
+                    this.disabled = false;
+                    this.textContent = '发送';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('commentAlert', '评论失败，请稍后重试', 'danger');
+                    this.disabled = false;
+                    this.textContent = '发送';
+                });
+            });
+            
+            // 添加按Enter键发送评论的功能
+            const commentInput = commentForm.querySelector('input[name="content"]');
+            if (commentInput) {
+                commentInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !submitCommentBtn.disabled) {
+                        e.preventDefault();
+                        submitCommentBtn.click();
+                    }
+                });
+            }
+        }
+        
+        // 评论删除功能
+        function addDeleteEventListener(deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                if (!confirm('确定要删除这条评论吗？')) {
+                    return;
+                }
+                
+                const commentId = this.getAttribute('data-comment-id');
+                const commentItem = document.getElementById(`comment-${commentId}`);
+                
+                // 禁用按钮，防止重复点击
+                this.disabled = true;
+                
+                // 创建FormData对象
+                const formData = new FormData();
+                formData.append('comment_id', commentId);
+                
+                // 发送删除请求
+                fetch('/api/comments/delete', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 显示成功消息
+                        showAlert('commentAlert', data.message || '评论已删除', 'success');
+                        
+                        // 从DOM中移除该评论
+                        if (commentItem) {
+                            commentItem.remove();
+                            
+                            // 更新评论计数
+                            const commentsCountEl = document.querySelector('.comments-count');
+                            const currentCount = parseInt(commentsCountEl.textContent || '0');
+                            commentsCountEl.textContent = Math.max(0, currentCount - 1);
+                            
+                            // 如果没有评论了，显示"没有评论"的提示
+                            if (currentCount - 1 === 0 && noCommentsMessage) {
+                                noCommentsMessage.style.display = 'block';
+                            }
+                        }
+                    } else {
+                        showAlert('commentAlert', data.message, 'danger');
+                        this.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('commentAlert', '删除失败，请稍后重试', 'danger');
+                    this.disabled = false;
+                });
+            });
+        }
+        
+        // 为所有现有的删除按钮添加事件监听器
+        document.querySelectorAll('.delete-comment-btn').forEach(deleteBtn => {
+            addDeleteEventListener(deleteBtn);
+        });
+        
+        // 为评论点赞按钮添加提示功能
+        document.querySelectorAll('.like-comment-btn').forEach(likeBtn => {
+            likeBtn.addEventListener('click', function(event) {
+                event.preventDefault();
+                showAlert('commentAlert', '评论点赞功能暂未实现', 'info');
+            });
+        });
     });
 </script>
 {% endblock %}

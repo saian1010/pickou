@@ -591,7 +591,6 @@ def list_posts():
         'has_more': len(posts) == per_page  # 如果返回的帖子数等于请求的数量，则可能还有更多
     }
     
-    from flask import jsonify
     return jsonify(result)
 
 @app.route('/view_post/<int:post_id>')
@@ -704,14 +703,14 @@ def view_post(post_id):
         comments = cursor.fetchall()
         
         # 5. 为每条评论添加点赞数
-        for comment in comments:
-            cursor.execute('''
-                SELECT COUNT(*) as like_count
-                FROM likes
-                WHERE comment_id = %s
-            ''', (comment['comment_id'],))
-            like_result = cursor.fetchone()
-            comment['likes'] = like_result['like_count'] if like_result else 0
+        # for comment in comments:
+        #     cursor.execute('''
+        #         SELECT COUNT(*) as like_count
+        #         FROM likes
+        #         WHERE comment_id = %s
+        #     ''', (comment['comment_id'],))
+        #     like_result = cursor.fetchone()
+        #     comment['likes'] = like_result['like_count'] if like_result else 0
         
         # 6. 获取当前用户信息（用于评论区显示）
         current_user = None
@@ -1124,7 +1123,7 @@ def add_comment():
             # 3. 获取评论详情
             cursor.execute('''
                 SELECT 
-                    c.comment_id, c.content, c.created_at,
+                    c.comment_id, c.content, c.created_at, c.user_id,
                     u.user_id, u.username, u.profile_image
                 FROM comments c
                 JOIN users u ON c.user_id = u.user_id
@@ -1151,64 +1150,10 @@ def add_comment():
 @app.route('/api/comments/like', methods=['POST'])
 def like_comment():
     """评论点赞API接口，返回JSON格式数据"""
-    if 'loggedin' not in session:
-        return jsonify({
-            'success': False,
-            'message': '请先登录',
-            'redirect': url_for('login')
-        }), 401
-    
-    comment_id = request.form.get('comment_id')
-    
-    if not comment_id:
-        return jsonify({'success': False, 'message': '参数错误'}), 400
-    
-    try:
-        with db.get_cursor() as cursor:
-            # 检查用户是否已点赞
-            cursor.execute('''
-                SELECT 1 FROM likes
-                WHERE user_id = %s AND comment_id = %s
-            ''', (session['user_id'], comment_id))
-            already_liked = cursor.fetchone() is not None
-            
-            if already_liked:
-                # 取消点赞
-                cursor.execute('''
-                    DELETE FROM likes
-                    WHERE user_id = %s AND comment_id = %s
-                ''', (session['user_id'], comment_id))
-                action = 'unlike'
-            else:
-                # 添加点赞
-                cursor.execute('''
-                    INSERT INTO likes (comment_id, user_id, created_at, updated_at)
-                    VALUES (%s, %s, NOW(), NOW())
-                ''', (comment_id, session['user_id']))
-                action = 'like'
-            
-            db.get_db().commit()
-            
-            # 获取最新点赞数
-            cursor.execute('''
-                SELECT COUNT(*) as like_count FROM likes
-                WHERE comment_id = %s
-            ''', (comment_id,))
-            result = cursor.fetchone()
-            like_count = result['like_count'] if result else 0
-            
-            return jsonify({
-                'success': True,
-                'message': '操作成功',
-                'data': {
-                    'action': action,
-                    'like_count': like_count
-                }
-            })
-            
-    except Exception as e:
-        print(f"点赞失败: {str(e)}")
-        return jsonify({'success': False, 'message': '操作失败，请稍后重试'}), 500
+    return jsonify({
+        'success': False,
+        'message': '评论点赞功能暂未实现，当前 likes 表仅支持对帖子点赞'
+    }), 501
 
 # 删除评论接口
 @app.route('/api/comments/delete', methods=['POST'])
@@ -1240,12 +1185,6 @@ def delete_comment():
                 
             if comment['user_id'] != session['user_id']:
                 return jsonify({'success': False, 'message': '无权删除该评论'}), 403
-            
-            # 删除评论关联的点赞
-            cursor.execute('''
-                DELETE FROM likes
-                WHERE comment_id = %s
-            ''', (comment_id,))
             
             # 删除评论
             cursor.execute('''
