@@ -902,12 +902,12 @@ def create_posts():
             flash('Title cannot exceed 100 characters')
             return render_template('create.html')
             
-        if len(title) < 2:
-            flash('Title must be at least 2 characters')
+        if len(title) < 1:
+            flash('Title must be at least 1 characters')
             return render_template('create.html')
             
-        if len(content) < 10:
-            flash('Content must be at least 10 characters')
+        if len(content) < 1:
+            flash('Content must be at least 1 characters')
             return render_template('create.html')
             
         if len(content) > 5000:
