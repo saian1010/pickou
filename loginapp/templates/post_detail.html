@@ -7,7 +7,7 @@
     <!-- 返回按钮 -->
     <div class="back-link mb-3 mt-3">
         <a href="{{ url_for('visitor_home') }}" class="text-decoration-none">
-            <i class="bi bi-arrow-left"></i> 返回
+            <i class="bi bi-arrow-left"></i> Back
         </a>
     </div>
     
@@ -37,9 +37,9 @@
                 {% if not is_author and 'loggedin' in session %}
                     <button class="btn follow-btn {% if is_following %}followed{% endif %}" data-user-id="{{ post.author_id }}">
                         {% if is_following %}
-                            <i class="bi bi-check"></i> 已关注
+                            <i class="bi bi-check"></i> Following
                         {% else %}
-                            <i class="bi bi-plus"></i> 关注
+                            <i class="bi bi-plus"></i> Follow
                         {% endif %}
                     </button>
                 {% endif %}
@@ -112,7 +112,7 @@
                                                 {{ percent }}%
                                             </div>
                                             <div class="pk-vote-count" {% if not vote_data.has_voted %}style="display:none"{% endif %}>
-                                                ({{ option.vote_count }}票)
+                                                ({{ option.vote_count }} votes)
                                             </div>
                                         </div>
                                         <div class="pk-option-bar" style="width: {{ percent if vote_data.has_voted else 0 }}%"></div>
@@ -128,7 +128,7 @@
                                 <form id="pkVoteForm" class="text-center mt-3">
                                     <input type="hidden" name="option" id="pk-selected-option">
                                     <input type="hidden" name="post_id" value="{{ post.post_id }}">
-                                    <button type="button" class="btn vote-btn" id="pk-vote-btn" disabled>投票</button>
+                                    <button type="button" class="btn vote-btn" id="pk-vote-btn" disabled>Vote</button>
                                 </form>
                             {% endif %}
                         </div>
@@ -141,7 +141,7 @@
                                     <div class="vote-result-item {% if option.vote_option_id in vote_data.user_voted_options %}selected{% endif %}">
                                         <div class="d-flex justify-content-between mb-1">
                                             <div class="vote-option-title">{{ option.title }}</div>
-                                            <div class="vote-percent">{{ percent }}% ({{ option.vote_count }}票)</div>
+                                            <div class="vote-percent">{{ percent }}% ({{ option.vote_count }} votes)</div>
                                         </div>
                                         <div class="progress">
                                             <div class="progress-bar" role="progressbar" style="width: {{ percent }}%"></div>
@@ -149,7 +149,7 @@
                                     </div>
                                 {% endfor %}
                                 <div class="vote-total text-center mt-3">
-                                    <small>共 <span id="total-vote-count">{{ vote_data.total_votes }}</span> 人参与投票</small>
+                                    <small>Total <span id="total-vote-count">{{ vote_data.total_votes }}</span> voters</small>
                                 </div>
                             </div>
                             
@@ -166,7 +166,7 @@
                                         </div>
                                     {% endfor %}
                                     <div class="vote-tip mb-2">
-                                        <small class="text-muted"><i class="bi bi-info-circle"></i> 可多选</small>
+                                        <small class="text-muted"><i class="bi bi-info-circle"></i> Multiple choices</small>
                                     </div>
                                 {% else %}
                                     <!-- 单选 -->
@@ -179,14 +179,14 @@
                                         </div>
                                     {% endfor %}
                                 {% endif %}
-                                <button type="button" class="btn vote-btn mt-2 submit-normal-vote-btn">投票</button>
+                                <button type="button" class="btn vote-btn mt-2 submit-normal-vote-btn">Vote</button>
                             </form>
                             
                             {% if 'loggedin' not in session %}
                                 <!-- 未登录提示 -->
                                 <div class="login-to-vote text-center p-3">
-                                    <p>登录后才能参与投票</p>
-                                    <a href="{{ url_for('login') }}" class="btn login-btn">登录</a>
+                                    <p>Login to vote</p>
+                                    <a href="{{ url_for('login') }}" class="btn login-btn">Login</a>
                                 </div>
                             {% endif %}
                         </div>
@@ -198,7 +198,7 @@
     
     <!-- 评论区 -->
     <div class="comments-section mt-4">
-        <h5 class="section-title">评论 <span class="comments-count">{{ comments|length }}</span></h5>
+        <h5 class="section-title">Comments <span class="comments-count">{{ comments|length }}</span></h5>
         
         <!-- 添加评论表单 -->
         {% if 'loggedin' in session %}
@@ -215,9 +215,9 @@
                         {% endif %}
                         
                         <div class="comment-input-container">
-                            <input type="text" name="content" class="form-control comment-input" placeholder="写下你的评论..." required>
+                            <input type="text" name="content" class="form-control comment-input" placeholder="Write your comment..." required>
                             <input type="hidden" name="post_id" value="{{ post.post_id }}">
-                            <button type="button" class="btn comment-submit-btn" id="submitComment">发送</button>
+                            <button type="button" class="btn comment-submit-btn" id="submitComment">Send</button>
                         </div>
                     </div>
                 </form>
@@ -228,7 +228,7 @@
             </div>
         {% else %}
             <div class="login-to-comment mb-4">
-                <a href="{{ url_for('login') }}">登录后发表评论</a>
+                <a href="{{ url_for('login') }}">Login to comment</a>
             </div>
         {% endif %}
         
@@ -273,7 +273,7 @@
                     <div class="empty-icon">
                         <i class="bi bi-chat-dots"></i>
                     </div>
-                    <p>还没有评论，快来抢沙发吧~</p>
+                    <p>No comments yet, be the first to comment!</p>
                 </div>
             {% endif %}
         </div>
@@ -852,7 +852,7 @@
                     // 更新百分比和票数
                     const percentEl = item.querySelector('.vote-percent');
                     if (percentEl) {
-                        percentEl.textContent = `${option.percent}% (${option.vote_count}票)`;
+                        percentEl.textContent = `${option.percent}% (${option.vote_count} votes)`;
                     }
                     
                     // 更新进度条
@@ -888,7 +888,7 @@
                     // 多选：检查是否至少选择了一个选项
                     const checkboxes = form.querySelectorAll('input[type="checkbox"][name="options[]"]:checked');
                     if (checkboxes.length === 0) {
-                        showAlert('vote-alert', '请至少选择一个选项', 'warning');
+                        showAlert('vote-alert', 'Please select at least one option', 'warning');
                         return;
                     }
                     
@@ -898,21 +898,21 @@
                         formData.append('options', checkbox.value);
                     });
                     
-                    console.log('提交多选投票数据:', Array.from(formData.entries()));
+                    console.log('Submitted multi-select vote data:', Array.from(formData.entries()));
                 } else {
                     // 单选：检查是否选择了选项
                     const selectedOption = form.querySelector('input[type="radio"][name="option"]:checked');
                     if (!selectedOption) {
-                        showAlert('vote-alert', '请选择一个选项', 'warning');
+                        showAlert('vote-alert', 'Please select an option', 'warning');
                         return;
                     }
                     
-                    console.log('提交单选投票数据:', Array.from(formData.entries()));
+                    console.log('Submitted single-select vote data:', Array.from(formData.entries()));
                 }
                 
                 // 禁用按钮，防止重复提交
                 this.disabled = true;
-                this.textContent = '提交中...';
+                this.textContent = 'Submitting...';
                 
                 fetch('/api/vote', {
                     method: 'POST',
@@ -932,14 +932,14 @@
                     } else {
                         showAlert('vote-alert', data.message, 'danger');
                         this.disabled = false;
-                        this.textContent = '投票';
+                        this.textContent = 'Vote';
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showAlert('vote-alert', '投票失败，请稍后重试', 'danger');
+                    showAlert('vote-alert', 'Vote submission failed, please try again later', 'danger');
                     this.disabled = false;
-                    this.textContent = '投票';
+                    this.textContent = 'Vote';
                 });
             });
         }
@@ -965,10 +965,10 @@
                     if (data.success) {
                         // 更新按钮文本和样式
                         if (data.data.is_following) {
-                            this.innerHTML = '<i class="bi bi-check"></i> 已关注';
+                            this.innerHTML = '<i class="bi bi-check"></i> Following';
                             this.classList.add('followed');
                         } else {
-                            this.innerHTML = '<i class="bi bi-plus"></i> 关注';
+                            this.innerHTML = '<i class="bi bi-plus"></i> Follow';
                             this.classList.remove('followed');
                         }
                         
@@ -1000,13 +1000,13 @@
                 const content = commentInput.value.trim();
                 
                 if (!content) {
-                    showAlert('commentAlert', '请输入评论内容', 'warning');
+                    showAlert('commentAlert', 'Please enter a comment', 'warning');
                     return;
                 }
                 
                 // 禁用按钮，防止重复提交
                 this.disabled = true;
-                this.textContent = '发送中...';
+                this.textContent = 'Sending...';
                 
                 // 创建FormData对象
                 const formData = new FormData(commentForm);
@@ -1092,13 +1092,13 @@
                     
                     // 重新启用按钮
                     this.disabled = false;
-                    this.textContent = '发送';
+                    this.textContent = 'Send';
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showAlert('commentAlert', '评论失败，请稍后重试', 'danger');
                     this.disabled = false;
-                    this.textContent = '发送';
+                    this.textContent = 'Send';
                 });
             });
             
@@ -1117,7 +1117,7 @@
         // 评论删除功能
         function addDeleteEventListener(deleteBtn) {
             deleteBtn.addEventListener('click', function() {
-                if (!confirm('确定要删除这条评论吗？')) {
+                if (!confirm('Are you sure you want to delete this comment?')) {
                     return;
                 }
                 
@@ -1140,7 +1140,7 @@
                 .then(data => {
                     if (data.success) {
                         // 显示成功消息
-                        showAlert('commentAlert', data.message || '评论已删除', 'success');
+                        showAlert('commentAlert', data.message || 'Comment deleted', 'success');
                         
                         // 从DOM中移除该评论
                         if (commentItem) {
@@ -1163,7 +1163,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showAlert('commentAlert', '删除失败，请稍后重试', 'danger');
+                    showAlert('commentAlert', 'Delete failed, please try again later', 'danger');
                     this.disabled = false;
                 });
             });
@@ -1178,7 +1178,7 @@
         document.querySelectorAll('.like-comment-btn').forEach(likeBtn => {
             likeBtn.addEventListener('click', function(event) {
                 event.preventDefault();
-                showAlert('commentAlert', '评论点赞功能暂未实现', 'info');
+                showAlert('commentAlert', 'Comment like feature not implemented yet', 'info');
             });
         });
     });

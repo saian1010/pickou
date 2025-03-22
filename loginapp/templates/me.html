@@ -1,52 +1,52 @@
 {% extends 'userbase.html' %}
 
-{% block title %}我的主页{% endblock %}
+{% block title %}My Profile{% endblock %}
 
 {# Set the active page to be highlighted in the navigation bar. #}
 {% set active_page = 'me' %}
 
 {% block content %}
 <div class="container py-3">
-    <!-- 用户信息区域 -->
+    <!-- User Information Area -->
     <div class="user-profile-card mb-4">
         <div class="user-header">
             <div class="user-avatar-container">
                 {% if profile and profile.profile_image %}
-                <img src="{{ url_for('static', filename='uploads/profiles/' + profile.profile_image) }}" alt="用户头像" class="user-avatar">
+                <img src="{{ url_for('static', filename='uploads/profiles/' + profile.profile_image) }}" alt="User Avatar" class="user-avatar">
                 {% else %}
-                <img src="{{ url_for('static', filename='img/default-avatar.jpg') }}" alt="用户头像" class="user-avatar">
+                <img src="{{ url_for('static', filename='img/default-avatar.jpg') }}" alt="User Avatar" class="user-avatar">
                 {% endif %}
             </div>
             <div class="user-info">
                 <h4 class="username">{{ session.username }}</h4>
-                <div class="user-id">小红书号：{{ session.user_id }}</div>
-                <div class="user-desc mt-2">这个人很懒，还没有填写个人简介</div>
+                <div class="user-id">User ID: {{ session.user_id }}</div>
+                <div class="user-desc mt-2">This user hasn't written a bio yet</div>
             </div>
         </div>
         
         <div class="user-stats">
             <div class="stat-item">
                 <div class="stat-value">0</div>
-                <div class="stat-label">关注</div>
+                <div class="stat-label">Following</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value">0</div>
-                <div class="stat-label">粉丝</div>
+                <div class="stat-label">Followers</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value">0</div>
-                <div class="stat-label">获赞与收藏</div>
+                <div class="stat-label">Likes & Saves</div>
             </div>
         </div>
     </div>
     
-    <!-- 功能菜单区域 -->
+    <!-- Feature Menu Area -->
     <div class="menu-list">
         <a href="{{ url_for('profile') }}" class="menu-item">
             <div class="menu-icon">
                 <i class="bi bi-person"></i>
             </div>
-            <div class="menu-text">编辑个人资料</div>
+            <div class="menu-text">Edit Profile</div>
             <div class="menu-arrow">
                 <i class="bi bi-chevron-right"></i>
             </div>
@@ -56,21 +56,21 @@
             <div class="menu-icon text-danger">
                 <i class="bi bi-box-arrow-right"></i>
             </div>
-            <div class="menu-text text-danger">退出登录</div>
+            <div class="menu-text text-danger">Log Out</div>
             <div class="menu-arrow">
                 <i class="bi bi-chevron-right"></i>
             </div>
         </a>
     </div>
     
-    <!-- 版本信息 -->
+    <!-- Version Information -->
     <div class="version-info text-center mt-5">
-        <p class="text-muted small">小红书风格演示 v1.0</p>
+        <p class="text-muted small">Xiaohongshu Style Demo v1.0</p>
     </div>
 </div>
 
 <style>
-    /* 小红书风格样式 */
+    /* Xiaohongshu Style CSS */
     :root {
         --xhs-primary: #ff2442;
         --xhs-light: #fff6f7;
@@ -84,7 +84,7 @@
         background-color: #f5f5f5;
     }
     
-    /* 用户信息卡片 */
+    /* User Information Card */
     .user-profile-card {
         background-color: white;
         border-radius: 12px;
@@ -93,7 +93,7 @@
         padding: 20px;
     }
     
-    /* 用户头部区域 */
+    /* User Header Area */
     .user-header {
         display: flex;
         align-items: center;
@@ -136,7 +136,7 @@
         line-height: 1.4;
     }
     
-    /* 用户统计数据 */
+    /* User Statistics */
     .user-stats {
         display: flex;
         justify-content: space-around;
@@ -160,7 +160,7 @@
         margin-top: 3px;
     }
     
-    /* 菜单列表 */
+    /* Menu List */
     .menu-list {
         background-color: white;
         border-radius: 12px;
@@ -203,7 +203,7 @@
         color: var(--xhs-gray);
     }
     
-    /* 特殊状态 */
+    /* Special States */
     .text-danger {
         color: var(--xhs-primary) !important;
     }

@@ -593,6 +593,86 @@ def list_posts():
     
     return jsonify(result)
 
+
+@app.route('/sub_list_posts')
+def sub_list_posts():
+    """帖子列表API - 返回JSON格式的帖子数据，支持分页。"""
+    # 获取页码和每页显示数量参数
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
+    
+    # 限制每页最大数量为24
+    if per_page > 24:
+        per_page = 24
+    
+    with db.get_cursor() as cursor:
+        # 查询帖子基本信息、作者信息和图片等
+        cursor.execute('''
+            SELECT 
+                p.post_id, 
+                p.title, 
+                p.content, 
+                p.created_at, 
+                IFNULL(p.vote_id, 0) as vote_id,
+                u.username,
+                u.profile_image,
+                (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
+                (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
+                (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes
+            FROM posts p 
+            LEFT JOIN users u ON p.user_id = u.user_id
+            where p.user_id in (select user_id from follows where follower_id = %s)
+            ORDER BY p.created_at DESC
+            LIMIT %s OFFSET %s
+        ''', (session['user_id'], per_page, (page - 1) * per_page))
+        posts = cursor.fetchall()
+        
+        # 打印帖子数量和第一个帖子的信息，用于调试
+        print(f"获取到 {len(posts)} 条帖子")
+        if posts:
+            print(f"第一个帖子: {posts[0]['content']}, ID: {posts[0]['post_id']}")
+        
+        # 获取总帖子数
+        cursor.execute('SELECT COUNT(*) AS total FROM posts')
+        total_posts = cursor.fetchone()['total']
+        print(f"数据库中共有 {total_posts} 条帖子")
+        
+        # 处理返回的数据，添加额外信息
+        for post in posts:
+            # 添加has_vote标志
+            post['has_vote'] = post['vote_id'] > 0
+            
+            # 确保likes字段不为None
+            if post['likes'] is None:
+                post['likes'] = 0
+                
+            # 设置图片URL
+            if post['first_image']:
+                post['image_url'] = url_for('get_post_image', filename=post['first_image'])
+            else:
+                post['image_url'] = url_for('static', filename='img/default-post.jpg')
+                
+            # 设置用户头像URL
+            if post['profile_image']:
+                post['user_avatar'] = url_for('static', filename=f'uploads/profiles/{post["profile_image"]}')
+            else:
+                post['user_avatar'] = url_for('static', filename='img/default-avatar.jpg')
+                
+            # 处理日期格式以便JSON序列化
+            if 'created_at' in post and post['created_at']:
+                post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+    
+    # 返回JSON格式响应
+    result = {
+        'posts': list(posts),
+        'page': page,
+        'per_page': per_page,
+        'total': total_posts,
+        'has_more': len(posts) == per_page  # 如果返回的帖子数等于请求的数量，则可能还有更多
+    }
+    
+    return jsonify(result)
+
 @app.route('/view_post/<int:post_id>')
 def view_post(post_id):
     """帖子详情页面。"""

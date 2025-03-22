@@ -1,6 +1,6 @@
 {% extends 'userbase.html' %}
 
-{% block title %}编辑个人资料{% endblock %}
+{% block title %}Edit Profile{% endblock %}
 
 {% set active_page = 'me' %}
 
@@ -9,14 +9,14 @@
     <!-- 返回按钮 -->
     <div class="mb-3">
         <a href="{{ url_for('me') }}" class="text-decoration-none">
-            <i class="bi bi-arrow-left"></i> 返回个人主页
+            <i class="bi bi-arrow-left"></i> Back to Profile
         </a>
     </div>
 
     <!-- 个人资料卡片 -->
     <div class="profile-card mb-4">
         <div class="profile-header">
-            <h4 class="mb-0">个人资料</h4>
+            <h4 class="mb-0">Profile Information</h4>
         </div>
 
         <div class="profile-body">
@@ -24,9 +24,9 @@
             <div class="avatar-section text-center mb-4">
                 <div class="avatar-container mx-auto">
                     {% if profile and profile.profile_image %}
-                    <img src="{{ url_for('static', filename='uploads/profiles/' + profile.profile_image) }}" alt="用户头像" class="avatar-img">
+                    <img src="{{ url_for('static', filename='uploads/profiles/' + profile.profile_image) }}" alt="User Avatar" class="avatar-img">
                     {% else %}
-                    <img src="{{ url_for('static', filename='img/default-avatar.jpg') }}" alt="用户头像" class="avatar-img">
+                    <img src="{{ url_for('static', filename='img/default-avatar.jpg') }}" alt="User Avatar" class="avatar-img">
                     {% endif %}
                     <div class="avatar-edit-button" data-bs-toggle="modal" data-bs-target="#avatarModal">
                         <i class="bi bi-pencil"></i>
@@ -40,7 +40,7 @@
             <!-- 基本信息表单 -->
             <form action="{{ url_for('update_profile') }}" method="post" class="profile-form">
                 <div class="mb-3">
-                    <label class="form-label">邮箱</label>
+                    <label class="form-label">Email</label>
                     <input type="email" class="form-control xhs-control" name="email" value="{{ profile.email or '' }}" required>
                     {% if email_error %}
                     <div class="text-danger small mt-1">{{ email_error }}</div>
@@ -48,7 +48,7 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">名字</label>
+                    <label class="form-label">First Name</label>
                     <input type="text" class="form-control xhs-control" name="first_name" value="{{ profile.first_name or '' }}" required>
                     {% if first_name_error %}
                     <div class="text-danger small mt-1">{{ first_name_error }}</div>
@@ -56,7 +56,7 @@
                 </div>
                 
                 <div class="mb-4">
-                    <label class="form-label">姓氏</label>
+                    <label class="form-label">Last Name</label>
                     <input type="text" class="form-control xhs-control" name="last_name" value="{{ profile.last_name or '' }}" required>
                     {% if last_name_error %}
                     <div class="text-danger small mt-1">{{ last_name_error }}</div>
@@ -64,7 +64,7 @@
                 </div>
                 
                 <div class="text-center">
-                    <button type="submit" class="btn xhs-button px-5">保存</button>
+                    <button type="submit" class="btn xhs-button px-5">Save</button>
                 </div>
             </form>
         </div>
@@ -73,7 +73,7 @@
     <!-- 修改密码卡片 -->
     <div class="profile-card mb-4">
         <div class="profile-header d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">账号安全</h4>
+            <h4 class="mb-0">Account Security</h4>
             {% if show_password_tab %}
             <a href="#" id="toggle-password-form" class="text-decoration-none">
                 <i class="bi bi-chevron-up"></i>
@@ -88,23 +88,23 @@
         <div class="profile-body password-form-container {% if not show_password_tab %}d-none{% endif %}">
             <form action="{{ url_for('change_password') }}" method="post" class="profile-form">
                 <div class="mb-3">
-                    <label class="form-label">当前密码</label>
+                    <label class="form-label">Current Password</label>
                     <input type="password" class="form-control xhs-control" name="current_password" required>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label">新密码</label>
+                    <label class="form-label">New Password</label>
                     <input type="password" class="form-control xhs-control" name="new_password" required>
-                    <div class="form-text">密码至少需要8个字符，并且包含字母和数字</div>
+                    <div class="form-text">Password must be at least 8 characters and include letters and numbers</div>
                 </div>
                 
                 <div class="mb-4">
-                    <label class="form-label">确认新密码</label>
+                    <label class="form-label">Confirm New Password</label>
                     <input type="password" class="form-control xhs-control" name="confirm_password" required>
                 </div>
                 
                 <div class="text-center">
-                    <button type="submit" class="btn xhs-button px-5">更新密码</button>
+                    <button type="submit" class="btn xhs-button px-5">Update Password</button>
                 </div>
             </form>
         </div>
@@ -116,34 +116,34 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0">
-                <h5 class="modal-title">更换头像</h5>
+                <h5 class="modal-title">Change Avatar</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
                 <form action="{{ url_for('update_profile_image') }}" method="post" enctype="multipart/form-data" id="avatarForm">
                     <div class="avatar-preview mb-4">
                         {% if profile and profile.profile_image %}
-                        <img src="{{ url_for('static', filename='uploads/profiles/' + profile.profile_image) }}" alt="预览" id="avatarPreview">
+                        <img src="{{ url_for('static', filename='uploads/profiles/' + profile.profile_image) }}" alt="Preview" id="avatarPreview">
                         {% else %}
-                        <img src="{{ url_for('static', filename='img/default-avatar.jpg') }}" alt="预览" id="avatarPreview">
+                        <img src="{{ url_for('static', filename='img/default-avatar.jpg') }}" alt="Preview" id="avatarPreview">
                         {% endif %}
                     </div>
                     
                     <div class="mb-3">
                         <label for="profile_image" class="btn xhs-outline-button px-4">
-                            <i class="bi bi-image me-2"></i>选择图片
+                            <i class="bi bi-image me-2"></i>Choose Image
                         </label>
                         <input type="file" id="profile_image" name="profile_image" class="d-none" accept="image/*">
                     </div>
                     
                     <div class="d-flex justify-content-center mt-4">
-                        <button type="button" class="btn xhs-secondary-button me-2" data-bs-dismiss="modal">取消</button>
-                        <button type="submit" class="btn xhs-button">保存</button>
+                        <button type="button" class="btn xhs-secondary-button me-2" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn xhs-button">Save</button>
                     </div>
                     
                     {% if profile and profile.profile_image %}
                     <div class="mt-4">
-                        <button type="submit" name="delete_image" value="1" class="btn btn-link text-danger">删除当前头像</button>
+                        <button type="submit" name="delete_image" value="1" class="btn btn-link text-danger">Delete Current Avatar</button>
                     </div>
                     {% endif %}
                 </form>
