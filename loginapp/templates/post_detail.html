@@ -2,6 +2,20 @@
 {% set active_page = 'home' %}
 {% block title %}{{ post.title }}{% endblock %}
 
+{% block head %}
+{{ super() }}
+<!-- 使用本地static目录中的Swiper资源 -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/swiper-bundle.min.css') }}" />
+<script src="{{ url_for('static', filename='js/swiper-bundle.min.js') }}"></script>
+<style>
+    /* 修复额外的Swiper样式问题 */
+    .swiper-wrapper {
+        display: flex;
+        transition-property: transform;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container post-detail-container">
     <!-- 返回按钮 -->
@@ -53,36 +67,36 @@
         <div class="post-content">
             <!-- 图片区域 (如果有图片) -->
             {% if images %}
-                <div class="post-images mb-4">
-                    {% if images|length == 1 %}
-                        <!-- 单张图片 -->
-                        <div class="single-image">
-                            <img src="{{ url_for('get_post_image', filename=images[0].image_path) }}" 
-                                 class="img-fluid" 
+            <div class="post-images-wrapper">
+                <!-- Swiper -->
+                <div class="swiper post-swiper">
+                    <div class="swiper-wrapper">
+                        {% for image in images %}
+                        <div class="swiper-slide">
+                            <img src="{{ url_for('get_post_image', filename=image.image_path) }}" 
+                                 alt="Post image {{ loop.index }}"
                                  data-bs-toggle="modal"
                                  data-bs-target="#imageModal"
-                                 data-bs-img="{{ url_for('get_post_image', filename=images[0].image_path) }}">
+                                 data-bs-img="{{ url_for('get_post_image', filename=image.image_path) }}"
+                                 class="swiper-lazy">
+                            <div class="swiper-lazy-preloader"></div>
                         </div>
-                    {% else %}
-                        <!-- 多张图片 -->
-                        <div class="images-grid">
-                            <div class="swiper post-swiper">
-                                <div class="swiper-wrapper">
-                                    {% for image in images %}
-                                        <div class="swiper-slide">
-                                            <img src="{{ url_for('get_post_image', filename=image.image_path) }}" 
-                                                 class="img-fluid" 
-                                                 data-bs-toggle="modal"
-                                                 data-bs-target="#imageModal"
-                                                 data-bs-img="{{ url_for('get_post_image', filename=image.image_path) }}">
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                                <div class="swiper-pagination"></div>
-                            </div>
-                        </div>
-                    {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- 分页器 -->
+                    <div class="swiper-pagination"></div>
+                    
+                    <!-- 导航按钮 -->
+                    <div class="swiper-button-prev"></div>
+                    <div class="swiper-button-next"></div>
                 </div>
+                
+                <!-- 图片数量指示器 -->
+                <div class="image-counter">
+                    <span class="current-index">1</span>/<span class="total-images">{{ images|length }}</span>
+                </div>
+            </div>
             {% endif %}
             
             <!-- 标题和内容 -->
@@ -790,6 +804,118 @@
         color: #E60012;
     }
 
+    /* 轮播图样式优化 */
+    .post-images-wrapper {
+        width: 100%;
+        margin-bottom: 40px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+    
+    .post-swiper {
+        width: 100%;
+        height: 400px; 
+        position: relative;
+        z-index: 1;
+    }
+    
+    .swiper-slide {
+        width: 100%;
+        height: 100%;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background-color: #f5f5f5;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    .swiper-slide img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 8px;
+        display: block;
+    }
+    
+    /* 确保内容正确显示，不会重叠 */
+    .post-title, .post-text, .vote-section, .comments-section {
+        position: relative;
+        z-index: 2;
+        clear: both;
+    }
+    
+    /* 导航按钮样式 */
+    .swiper-button-next,
+    .swiper-button-prev {
+        color: white;
+        background: rgba(0, 0, 0, 0.3);
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        --swiper-navigation-size: 18px;
+    }
+    
+    .swiper-button-next:after,
+    .swiper-button-prev:after {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    /* 分页器样式 */
+    .swiper-pagination {
+        position: absolute;
+        bottom: 10px;
+    }
+    
+    .swiper-pagination-bullet {
+        width: 8px;
+        height: 8px;
+        background: white;
+        opacity: 0.6;
+    }
+    
+    .swiper-pagination-bullet-active {
+        background: #ff2442;
+        opacity: 1;
+    }
+    
+    /* 评论区样式优化 */
+    .comments-section {
+        margin-top: 30px;
+        clear: both;
+    }
+    
+    /* 图片计数器样式 */
+    .image-counter {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        z-index: 10;
+    }
+    
+    /* 确保所有幻灯片都可见 */
+    .swiper-wrapper {
+        align-items: stretch;
+    }
+    
+    .swiper-slide {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: transform 0.3s ease;
+        height: auto;
+    }
+    
+    /* 加载指示器样式 */
+    .swiper-lazy-preloader {
+        border-color: #ff2442;
+    }
 </style>
 
 <script>
@@ -805,13 +931,82 @@
         }
         
         // 初始化轮播图 (如果有Swiper库)
-        if (typeof Swiper !== 'undefined' && document.querySelector('.post-swiper')) {
-            new Swiper('.post-swiper', {
-                pagination: {
-                    el: '.swiper-pagination',
-                    clickable: true
+        if (typeof Swiper !== 'undefined') {
+            setTimeout(() => {
+                try {
+                    console.log("初始化轮播图...");
+                    const swiperElement = document.querySelector('.post-swiper');
+                    const currentIndexEl = document.querySelector('.current-index');
+                    const totalImagesEl = document.querySelector('.total-images');
+                    
+                    if (swiperElement) {
+                        const swiper = new Swiper('.post-swiper', {
+                            // 基本配置
+                            slidesPerView: 1,
+                            spaceBetween: 0,
+                            speed: 300,
+                            
+                            // 循环和自动高度
+                            loop: false,
+                            
+                            // 延迟加载
+                            lazy: {
+                                loadPrevNext: true,
+                                loadPrevNextAmount: 2,
+                            },
+                            
+                            // 触摸配置
+                            grabCursor: true,
+                            touchRatio: 1,
+                            simulateTouch: true,
+                            
+                            // 分页器
+                            pagination: {
+                                el: '.swiper-pagination',
+                                clickable: true,
+                                dynamicBullets: true
+                            },
+                            
+                            // 导航按钮
+                            navigation: {
+                                nextEl: '.swiper-button-next',
+                                prevEl: '.swiper-button-prev'
+                            },
+                            
+                            // 回调函数
+                            on: {
+                                init: function() {
+                                    console.log('轮播图初始化成功!');
+                                    console.log('总共图片数量:', this.slides.length);
+                                    
+                                    // 更新总图片数量
+                                    if (totalImagesEl) {
+                                        totalImagesEl.textContent = this.slides.length;
+                                    }
+                                },
+                                slideChange: function() {
+                                    console.log('当前索引:', this.activeIndex + 1);
+                                    
+                                    // 更新当前图片索引
+                                    if (currentIndexEl) {
+                                        currentIndexEl.textContent = this.activeIndex + 1;
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // 记录初始化的Swiper
+                        window.postSwiper = swiper;
+                        console.log("轮播图实例已创建");
+                    } else {
+                        console.warn('找不到.post-swiper元素');
+                    }
+                } catch (e) {
+                    console.error("Swiper初始化错误:", e);
                 }
-            });
+            }, 600); // 延迟时间增加
+        } else {
+            console.warn('Swiper库未加载，请检查网络连接');
         }
         
         // 显示提示信息
