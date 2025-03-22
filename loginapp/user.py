@@ -517,161 +517,163 @@ def subscription():
 
 @app.route('/list_posts')
 def list_posts():
-    """帖子列表API - 返回JSON格式的帖子数据，支持分页。"""
-    # 获取页码和每页显示数量参数
+    """List all posts endpoint.
+    
+    This endpoint is used to retrieve a paginated list of all posts. It supports
+    pagination via query parameters 'page' and 'per_page'.
+    """
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 12, type=int)
     
-    # 限制每页最大数量为24
-    if per_page > 24:
-        per_page = 24
+    # Calculate offset for pagination
+    offset = (page - 1) * per_page
     
     with db.get_cursor() as cursor:
-        # 查询帖子基本信息、作者信息和图片等
-        cursor.execute('''
-            SELECT 
-                p.post_id, 
-                p.title, 
-                p.content, 
-                p.created_at, 
-                IFNULL(p.vote_id, 0) as vote_id,
-                u.username,
-                u.profile_image,
-                (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
-                (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
-                (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes
-            FROM posts p 
-            LEFT JOIN users u ON p.user_id = u.user_id
-            ORDER BY p.created_at DESC
-            LIMIT %s OFFSET %s
-        ''', (per_page, (page - 1) * per_page))
+        # Get current user ID if logged in
+        current_user_id = session.get('user_id', None)
+        
+        # Query to get posts with user info, image info, and likes count
+        query = '''
+        SELECT p.post_id, p.title, p.content, p.created_at, p.updated_at,
+               u.user_id, u.username, u.profile_image,
+               pi.image_path as image_url,
+               (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes,
+               (SELECT COUNT(*) > 0 FROM likes ul WHERE ul.post_id = p.post_id AND ul.user_id = %s) as user_liked
+        FROM posts p
+        JOIN users u ON p.user_id = u.user_id
+        LEFT JOIN post_images pi ON p.post_id = pi.post_id
+        ORDER BY p.created_at DESC
+        LIMIT %s OFFSET %s;
+        '''
+        
+        # Execute the query with current user ID (or NULL), limit, and offset
+        cursor.execute(query, (current_user_id or 0, per_page, offset))
         posts = cursor.fetchall()
         
-        # 打印帖子数量和第一个帖子的信息，用于调试
-        print(f"获取到 {len(posts)} 条帖子")
-        if posts:
-            print(f"第一个帖子: {posts[0]['content']}, ID: {posts[0]['post_id']}")
+        # Get total post count to determine if there are more posts
+        cursor.execute('SELECT COUNT(*) as total FROM posts')
+        total_count = cursor.fetchone()['total']
         
-        # 获取总帖子数
-        cursor.execute('SELECT COUNT(*) AS total FROM posts')
-        total_posts = cursor.fetchone()['total']
-        print(f"数据库中共有 {total_posts} 条帖子")
+        # Calculate if there are more posts based on total count
+        has_more = (page * per_page) < total_count
         
-        # 处理返回的数据，添加额外信息
+        # Process posts for output
         for post in posts:
-            # 添加has_vote标志
-            post['has_vote'] = post['vote_id'] > 0
+            # Convert datetime objects to strings for JSON serialization
+            post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            post['updated_at'] = post['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Convert image URL to full path if it exists
+            if post['image_url']:
+                post['image_url'] = url_for('get_post_image', filename=post['image_url'])
+            
+            # Ensure profile image has a URL
+            if post['profile_image']:
+                post['profile_image'] = url_for('static', filename='uploads/profiles/' + post['profile_image'])
+            else:
+                post['profile_image'] = url_for('static', filename='img/default-avatar.jpg')
+            
+            # Convert user_liked to boolean
+            post['user_liked'] = bool(post['user_liked'])
             
             # 确保likes字段不为None
             if post['likes'] is None:
                 post['likes'] = 0
-                
-            # 设置图片URL
-            if post['first_image']:
-                post['image_url'] = url_for('get_post_image', filename=post['first_image'])
-            else:
-                post['image_url'] = url_for('static', filename='img/default-post.jpg')
-                
-            # 设置用户头像URL
-            if post['profile_image']:
-                post['user_avatar'] = url_for('static', filename=f'uploads/profiles/{post["profile_image"]}')
-            else:
-                post['user_avatar'] = url_for('static', filename='img/default-avatar.jpg')
-                
-            # 处理日期格式以便JSON序列化
-            if 'created_at' in post and post['created_at']:
-                post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
-    # 返回JSON格式响应
-    result = {
-        'posts': list(posts),
+    # Return the posts as JSON
+    return jsonify({
+        'posts': posts,
         'page': page,
         'per_page': per_page,
-        'total': total_posts,
-        'has_more': len(posts) == per_page  # 如果返回的帖子数等于请求的数量，则可能还有更多
-    }
-    
-    return jsonify(result)
+        'has_more': has_more
+    })
 
 
 @app.route('/sub_list_posts')
 def sub_list_posts():
-    """帖子列表API - 返回JSON格式的帖子数据，支持分页。"""
-    # 获取页码和每页显示数量参数
+    """Subscription list posts endpoint.
+    
+    This endpoint is used to retrieve a paginated list of posts from users that
+    the current user follows. It supports pagination via query parameters 'page'
+    and 'per_page'.
+    """
+    # Check if user is logged in
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': 'You must be logged in to view your subscription feed.'
+        }), 401
+    
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 12, type=int)
     
-    # 限制每页最大数量为24
-    if per_page > 24:
-        per_page = 24
+    # Calculate offset for pagination
+    offset = (page - 1) * per_page
+    
+    # Get current user ID
+    current_user_id = session.get('user_id')
     
     with db.get_cursor() as cursor:
-        # 查询帖子基本信息、作者信息和图片等
-        cursor.execute('''
-            SELECT 
-                p.post_id, 
-                p.title, 
-                p.content, 
-                p.created_at, 
-                IFNULL(p.vote_id, 0) as vote_id,
-                u.username,
-                u.profile_image,
-                (SELECT COUNT(*) FROM post_images pi WHERE pi.post_id = p.post_id) as image_count,
-                (SELECT image_path FROM post_images pi WHERE pi.post_id = p.post_id ORDER BY pi.created_at LIMIT 1) as first_image,
-                (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes
-            FROM posts p 
-            LEFT JOIN users u ON p.user_id = u.user_id
-            where p.user_id in (select user_id from follows where follower_id = %s)
-            ORDER BY p.created_at DESC
-            LIMIT %s OFFSET %s
-        ''', (session['user_id'], per_page, (page - 1) * per_page))
+        # Query to get posts with user info, image info, and likes count, filtering by followed users
+        query = '''
+        SELECT p.post_id, p.title, p.content, p.created_at, p.updated_at,
+               u.user_id, u.username, u.profile_image,
+               pi.image_path as image_url,
+               (SELECT COUNT(*) FROM likes uv WHERE uv.post_id = p.post_id) as likes,
+               (SELECT COUNT(*) > 0 FROM likes ul WHERE ul.post_id = p.post_id AND ul.user_id = %s) as user_liked
+        FROM posts p
+        JOIN users u ON p.user_id = u.user_id
+        LEFT JOIN post_images pi ON p.post_id = pi.post_id
+        JOIN follows f ON p.user_id = f.follower_id AND f.user_id = %s
+        ORDER BY p.created_at DESC
+        LIMIT %s OFFSET %s;
+        '''
+        
+        # Execute the query with current user ID, limit, and offset
+        cursor.execute(query, (current_user_id, current_user_id, per_page, offset))
         posts = cursor.fetchall()
         
-        # 打印帖子数量和第一个帖子的信息，用于调试
-        print(f"获取到 {len(posts)} 条帖子")
-        if posts:
-            print(f"第一个帖子: {posts[0]['content']}, ID: {posts[0]['post_id']}")
+        # Get total posts count from followed users to determine if there are more posts
+        cursor.execute('''
+            SELECT COUNT(*) as total 
+            FROM posts p 
+            JOIN follows f ON p.user_id = f.follower_id AND f.user_id = %s
+        ''', (current_user_id,))
+        total_count = cursor.fetchone()['total']
         
-        # 获取总帖子数
-        cursor.execute('SELECT COUNT(*) AS total FROM posts')
-        total_posts = cursor.fetchone()['total']
-        print(f"数据库中共有 {total_posts} 条帖子")
+        # Calculate if there are more posts based on total count
+        has_more = (page * per_page) < total_count
         
-        # 处理返回的数据，添加额外信息
+        # Process posts for output
         for post in posts:
-            # 添加has_vote标志
-            post['has_vote'] = post['vote_id'] > 0
+            # Convert datetime objects to strings for JSON serialization
+            post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            post['updated_at'] = post['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Convert image URL to full path if it exists
+            if post['image_url']:
+                post['image_url'] = url_for('get_post_image', filename=post['image_url'])
+            
+            # Ensure profile image has a URL
+            if post['profile_image']:
+                post['profile_image'] = url_for('static', filename='uploads/profiles/' + post['profile_image'])
+            else:
+                post['profile_image'] = url_for('static', filename='img/default-avatar.jpg')
+            
+            # Convert user_liked to boolean
+            post['user_liked'] = bool(post['user_liked'])
             
             # 确保likes字段不为None
             if post['likes'] is None:
                 post['likes'] = 0
-                
-            # 设置图片URL
-            if post['first_image']:
-                post['image_url'] = url_for('get_post_image', filename=post['first_image'])
-            else:
-                post['image_url'] = url_for('static', filename='img/default-post.jpg')
-                
-            # 设置用户头像URL
-            if post['profile_image']:
-                post['user_avatar'] = url_for('static', filename=f'uploads/profiles/{post["profile_image"]}')
-            else:
-                post['user_avatar'] = url_for('static', filename='img/default-avatar.jpg')
-                
-            # 处理日期格式以便JSON序列化
-            if 'created_at' in post and post['created_at']:
-                post['created_at'] = post['created_at'].strftime('%Y-%m-%d %H:%M:%S')
     
-    # 返回JSON格式响应
-    result = {
-        'posts': list(posts),
+    # Return the posts as JSON
+    return jsonify({
+        'posts': posts,
         'page': page,
         'per_page': per_page,
-        'total': total_posts,
-        'has_more': len(posts) == per_page  # 如果返回的帖子数等于请求的数量，则可能还有更多
-    }
-    
-    return jsonify(result)
+        'has_more': has_more
+    })
 
 @app.route('/view_post/<int:post_id>')
 def view_post(post_id):
@@ -1546,3 +1548,113 @@ def api_check_follow(target_user_id):
     except Exception as e:
         print(f"检查关注状态失败: {str(e)}")
         return jsonify({'success': False, 'message': '获取数据失败，请稍后重试'}), 500
+
+@app.route('/api/like/<int:post_id>', methods=['POST'])
+def like_post(post_id):
+    """Like a post.
+    
+    Args:
+        post_id: The ID of the post to like.
+        
+    Returns:
+        JSON response indicating success or failure.
+    """
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': 'You must be logged in to like posts.'
+        }), 401
+    
+    user_id = session.get('user_id')
+    
+    with db.get_cursor() as cursor:
+        # Check if the post exists
+        cursor.execute('SELECT 1 FROM posts WHERE post_id = %s', (post_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'message': 'Post not found.'
+            }), 404
+        
+        # Check if the user has already liked this post
+        cursor.execute(
+            'SELECT 1 FROM likes WHERE post_id = %s AND user_id = %s',
+            (post_id, user_id)
+        )
+        if cursor.fetchone():
+            return jsonify({
+                'success': True,
+                'message': 'You have already liked this post.'
+            })
+        
+        # Add the like
+        cursor.execute(
+            'INSERT INTO likes (post_id, user_id) VALUES (%s, %s)',
+            (post_id, user_id)
+        )
+        db.get_db().commit()
+        
+        # Get the updated like count
+        cursor.execute('SELECT COUNT(*) as count FROM likes WHERE post_id = %s', (post_id,))
+        like_count = cursor.fetchone()['count']
+        
+        return jsonify({
+            'success': True,
+            'message': 'Post liked successfully.',
+            'likes': like_count
+        })
+
+@app.route('/api/unlike/<int:post_id>', methods=['POST'])
+def unlike_post(post_id):
+    """Unlike a post.
+    
+    Args:
+        post_id: The ID of the post to unlike.
+        
+    Returns:
+        JSON response indicating success or failure.
+    """
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': 'You must be logged in to unlike posts.'
+        }), 401
+    
+    user_id = session.get('user_id')
+    
+    with db.get_cursor() as cursor:
+        # Check if the post exists
+        cursor.execute('SELECT 1 FROM posts WHERE post_id = %s', (post_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'message': 'Post not found.'
+            }), 404
+        
+        # Check if the user has liked this post
+        cursor.execute(
+            'SELECT 1 FROM likes WHERE post_id = %s AND user_id = %s',
+            (post_id, user_id)
+        )
+        if not cursor.fetchone():
+            return jsonify({
+                'success': True,
+                'message': 'You have not liked this post.'
+            })
+        
+        # Remove the like
+        cursor.execute(
+            'DELETE FROM likes WHERE post_id = %s AND user_id = %s',
+            (post_id, user_id)
+        )
+        db.get_db().commit()
+        
+        # Get the updated like count
+        cursor.execute('SELECT COUNT(*) as count FROM likes WHERE post_id = %s', (post_id,))
+        like_count = cursor.fetchone()['count']
+        
+        return jsonify({
+            'success': True,
+            'message': 'Post unliked successfully.',
+            'likes': like_count
+        })
