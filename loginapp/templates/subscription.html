@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
         state.loading = true;
         
         // Build URL (with pagination parameters)
-        const url = `/subscription_posts?page=${state.currentPage}&per_page=${state.perPage}`;
+        const url = `/sub_list_posts?page=${state.currentPage}&per_page=${state.perPage}`;
         
         // Send request to get posts data
         fetch(url)
