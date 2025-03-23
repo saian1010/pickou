@@ -427,8 +427,9 @@
     }
     
     /* 图片样式 */
-    .post-images {
+    .post-images-wrapper {
         margin: 0 -20px 20px;
+        position: relative;
     }
     
     .single-image img {
@@ -440,7 +441,8 @@
     
     .swiper {
         width: 100%;
-        height: 400px;
+        height: auto;
+        max-height: 600px;
     }
     
     .swiper-slide {
@@ -448,6 +450,8 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        width: 100%;
+        height: auto;
     }
     
     .swiper-slide img {
@@ -455,6 +459,18 @@
         max-height: 100%;
         object-fit: contain;
         cursor: pointer;
+    }
+    
+    .swiper-slide.portrait img {
+        height: 500px;
+        width: auto;
+        max-width: 100%;
+    }
+    
+    .swiper-slide.landscape img {
+        width: 100%;
+        height: auto;
+        max-height: 400px;
     }
     
     /* 投票样式 */
@@ -930,6 +946,33 @@
             });
         }
         
+        // 图片方向检测和处理
+        const swiperSlides = document.querySelectorAll('.swiper-slide');
+        
+        swiperSlides.forEach(slide => {
+            const img = slide.querySelector('img');
+            if (img) {
+                img.onload = function() {
+                    if (this.naturalWidth > this.naturalHeight) {
+                        // 横向图片
+                        slide.classList.add('landscape');
+                    } else {
+                        // 纵向图片
+                        slide.classList.add('portrait');
+                    }
+                };
+                
+                // 如果图片已经加载完成，立即检查方向
+                if (img.complete) {
+                    if (img.naturalWidth > img.naturalHeight) {
+                        slide.classList.add('landscape');
+                    } else {
+                        slide.classList.add('portrait');
+                    }
+                }
+            }
+        });
+
         // 初始化轮播图 (如果有Swiper库)
         if (typeof Swiper !== 'undefined') {
             setTimeout(() => {
