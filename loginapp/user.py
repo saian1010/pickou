@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import jsonify
+from authlib.integrations.flask_client import OAuth
 
 # Create upload folder constant
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -28,6 +29,39 @@ flask_bcrypt = Bcrypt(app)
 
 # Default role assigned to new users upon registration.
 DEFAULT_USER_ROLE = 'visitor'
+
+
+
+# 配置应用密钥
+app.secret_key = os.urandom(24)
+
+# 配置 OAuth
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id="你的客户端ID",
+    client_secret="你的客户端密钥",
+    access_token_url='https://oauth2.googleapis.com/token',
+    access_token_params=None,
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    authorize_params=None,
+    api_base_url='https://www.googleapis.com/oauth2/v1/',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+# 处理 Google 回调
+@app.route('/callback')
+def callback():
+    token = google.authorize_access_token()
+    user_info = google.get('userinfo').json()
+    session['user'] = user_info
+    return jsonify(user_info)  # 可以改成跳转到首页
+
+# 登录路由
+@app.route('/google_login')
+def google_login():
+    return google.authorize_redirect(url_for('callback', _external=True))
+
 
 def user_home_url():
     role = session.get('role', None)
