@@ -447,7 +447,7 @@
     /* 图片样式 */
     .post-images-wrapper {
         width: 100%;
-        margin: 0 auto 40px;
+        margin: 0 auto 20px;
         position: relative;
         overflow: hidden;
         border-radius: 8px;
@@ -467,12 +467,11 @@
     }
     
     .swiper-slide {
-        text-align: center;
         display: flex !important;
-        justify-content: center !important;
         align-items: center !important;
-        width: 100%;
+        justify-content: center !important;
         height: 100%;
+        background-color: #f9f9f9;
     }
     
     .swiper-slide img {
@@ -480,12 +479,8 @@
         max-height: 100%;
         width: auto;
         height: auto;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
         object-fit: contain;
-        border-radius: 8px;
+        margin: 0 auto;
     }
     
     .swiper-slide.portrait img {

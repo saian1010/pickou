@@ -142,15 +142,15 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        padding: 8px 10px;
-        height: 70px; /* 固定高度 */
+        padding: 10px;
+        height: 85px; /* 稍微增加高度 */
         flex: 0 0 auto;
     }
 
     /* 横向图片下方内容固定高度 */
     .landscape ~ .post-content {
-        height: 60px; /* 增加横向图片下方内容高度，从50px调整为60px */
-        padding: 6px 8px;
+        height: 85px; /* 与普通内容区域保持一致高度 */
+        padding: 8px 10px;
     }
 
     .post-title {
@@ -160,10 +160,12 @@
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
-        -webkit-line-clamp: 1; /* 限制为1行 */
+        -webkit-line-clamp: 2; /* 允许展示2行 */
         -webkit-box-orient: vertical;
-        line-height: 1.3;
+        line-height: 1.4;
+        max-height: 2.8em; /* 2行文字的最大高度 = 行高 × 行数 */
         margin-bottom: 5px;
+        word-break: break-word; /* 允许在单词内换行 */
     }
 
     .post-avatar {
