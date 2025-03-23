@@ -446,8 +446,12 @@
     
     /* 图片样式 */
     .post-images-wrapper {
-        margin: 0 -20px 20px;
+        width: 100%;
+        margin: 0 auto 40px;
         position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        text-align: center;
     }
     
     .single-image img {
@@ -474,9 +478,14 @@
     .swiper-slide img {
         max-width: 100%;
         max-height: 100%;
-        object-fit: contain !important;
-        cursor: pointer;
-        margin: 0 auto; /* 确保水平居中 */
+        width: auto;
+        height: auto;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        object-fit: contain;
+        border-radius: 8px;
     }
     
     .swiper-slide.portrait img {
@@ -841,14 +850,16 @@
     /* 轮播图样式优化 */
     .post-images-wrapper {
         width: 100%;
-        margin-bottom: 40px;
+        margin: 0 auto 40px;
         position: relative;
         overflow: hidden;
         border-radius: 8px;
+        text-align: center;
     }
     
     .post-swiper {
         width: 100%;
+        margin: 0 auto;
         height: 400px; 
         position: relative;
         z-index: 1;
@@ -866,11 +877,12 @@
     }
     
     .swiper-slide img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
         border-radius: 8px;
         display: block;
+        margin: 0 auto;
     }
     
     /* 确保内容正确显示，不会重叠 */
@@ -1006,6 +1018,7 @@
                             slidesPerView: 1,
                             spaceBetween: 0,
                             speed: 300,
+                            centeredSlides: true, // 确保幻灯片居中
                             
                             // 循环和自动高度
                             loop: false,
