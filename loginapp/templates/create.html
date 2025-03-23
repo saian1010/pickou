@@ -333,8 +333,13 @@ document.getElementById('uploadPlaceholder').addEventListener('click', function(
     document.getElementById('imageUpload').click();
 });
 
+// 全局变量，用于追踪当前显示的图片
+const selectedFiles = new Set();
+
 document.getElementById('imageUpload').addEventListener('change', function(e) {
     handleImageUpload(e.target.files);
+    // 重置input的value，以便同一张图片可以重复选择
+    this.value = '';
 });
 
 function handleImageUpload(files) {
@@ -348,12 +353,17 @@ function handleImageUpload(files) {
             continue;
         }
         
+        // 为每个文件生成唯一ID
+        const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        selectedFiles.add({id: fileId, file: file});
+        
         const reader = new FileReader();
-        reader.onload = (function(theFile) {
+        reader.onload = (function(theFile, id) {
             return function(e) {
                 // Create preview wrapper
                 const previewWrapper = document.createElement('div');
                 previewWrapper.className = 'xhs-image-preview-wrapper';
+                previewWrapper.dataset.fileId = id;
                 
                 // Create image preview
                 const img = document.createElement('img');
@@ -366,6 +376,12 @@ function handleImageUpload(files) {
                 deleteBtn.className = 'xhs-image-delete';
                 deleteBtn.innerHTML = '<i class="bi bi-x"></i>';
                 deleteBtn.addEventListener('click', function() {
+                    // 从selectedFiles中移除
+                    selectedFiles.forEach(item => {
+                        if(item.id === id) {
+                            selectedFiles.delete(item);
+                        }
+                    });
                     previewWrapper.remove();
                 });
                 
@@ -374,7 +390,7 @@ function handleImageUpload(files) {
                 previewWrapper.appendChild(deleteBtn);
                 previewContainer.appendChild(previewWrapper);
             };
-        })(file);
+        })(file, fileId);
         
         reader.readAsDataURL(file);
     }
@@ -509,7 +525,7 @@ document.addEventListener('input', function(e) {
     }
 });
 
-// Publishing action
+// 修改表单提交处理
 document.getElementById('createForm').addEventListener('submit', function(e) {
     // Prevent default submission so we can process data
     e.preventDefault();
@@ -566,8 +582,32 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
             pollDataField.value = 'null';
         }
         
-        // Submit form
-        this.submit();
+        // 处理已选择的图片上传
+        const formData = new FormData(this);
+        
+        // 清除原有的images[]字段
+        formData.delete('images[]');
+        
+        // 添加所有当前显示的图片到FormData
+        selectedFiles.forEach(item => {
+            formData.append('images[]', item.file);
+        });
+        
+        // AJAX提交表单
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', this.action);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                window.location.href = xhr.responseURL || '/';
+            } else {
+                alert('Submission failed, please try again');
+            }
+        };
+        xhr.onerror = function() {
+            alert('Network error, please try again');
+        };
+        xhr.send(formData);
+        
     } catch (error) {
         console.error('Error submitting form:', error);
         alert('Submission failed, please try again');
