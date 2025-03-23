@@ -1,0 +1,812 @@
+{% extends "userbase.html" %}
+{% set active_page = 'create' %}
+{% block title %}Create Post{% endblock %}
+
+{% block content %}
+<div class="container mt-3 mb-5">
+    <!-- Form Container with XHS style -->
+    <div class="xhs-create-container">
+        <!-- Tab Navigation -->
+        <div class="xhs-create-tabs mb-3">
+            <div class="tab-active">Post</div>
+        </div>
+        
+        <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+        <!-- Content Creation Form -->
+        <form id="createForm" method="POST" action="{{ url_for('create_posts') }}" enctype="multipart/form-data">
+            <!-- Hidden poll data field -->
+            <input type="hidden" id="pollDataField" name="pollData" value="">
+            
+            <!-- Title Field -->
+        <div class="form-group mb-3">
+            <input type="text" 
+                       class="form-control xhs-input" 
+                       id="title" 
+                       name="title" 
+                   required 
+                       maxlength="100"
+                       placeholder="Title (required)" 
+                       pattern=".{1,100}"
+                       title="Title must be between 2 and 100 characters">
+                <div class="xhs-form-text">
+                    <span id="title-length">0</span>/100
+                </div>
+        </div>
+        
+            <!-- Description Field -->
+        <div class="form-group mb-3">
+                <textarea class="form-control xhs-textarea" 
+                          id="content" 
+                          name="content" 
+                      rows="5" 
+                      required
+                      minlength="1"
+                          maxlength="5000"
+                          placeholder="Share your thoughts... (required)"></textarea>
+                <div class="xhs-form-text">
+                    <span id="content-length">0</span>/5000
+                </div>
+            </div>
+            
+            <!-- Image Upload Section -->
+            <div class="form-group mb-3">
+                <div class="xhs-image-upload" id="imageUploadArea">
+                    <div class="xhs-upload-placeholder" id="uploadPlaceholder">
+                        <i class="bi bi-image"></i>
+                        <div>Add Images</div>
+                    </div>
+                    <input type="file" id="imageUpload" name="images[]" accept="image/*" multiple style="display: none;">
+                    <div id="imagePreviewContainer" class="xhs-image-preview-container"></div>
+                </div>
+            </div>
+            
+            <!-- Poll Section (initially hidden) -->
+            <div id="pollContainer" class="xhs-poll-container mb-3" style="display: none;">
+                <div class="xhs-poll-header">
+                    <h5>Poll</h5>
+                    <button type="button" class="xhs-edit-btn" id="editPollBtn">Edit</button>
+                </div>
+                <div id="pollPreview" class="xhs-poll-preview"></div>
+            </div>
+            
+            <!-- Feature Buttons -->
+            <div class="xhs-feature-buttons mb-3">
+                <button type="button" id="createPollBtn" class="xhs-feature-btn">
+                    <i class="bi bi-bar-chart"></i>
+                    <span>Poll</span>
+                </button>
+            </div>
+            
+            <!-- Poll Creation Modal -->
+            <div class="modal fade" id="pollModal" tabindex="-1" aria-labelledby="pollModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="pollModalLabel">Create Poll</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="pollQuestion" class="form-label">Poll Question</label>
+                                <input type="text" class="form-control" id="pollQuestion" placeholder="Enter poll question">
+                            </div>
+                            <div id="pollOptionsContainer">
+                                <div class="mb-2 poll-option-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control poll-option" placeholder="Option 1">
+                                        <!-- <button class="btn btn-outline-secondary delete-option" type="button" disabled>
+                                            <i class="bi bi-x"></i>
+                                        </button> -->
+                                    </div>
+                                </div>
+                                <div class="mb-2 poll-option-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control poll-option" placeholder="Option 2">
+                                        <!-- <button class="btn btn-outline-secondary delete-option" type="button" disabled>
+                                            <i class="bi bi-x"></i>
+                                        </button> -->
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" id="addOptionBtn" class="btn btn-sm xhs-btn-light mt-2">
+                                <i class="bi bi-plus"></i> Add Option
+                            </button>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" id="allowMultipleVotes">
+                                <label class="form-check-label" for="allowMultipleVotes">
+                                    Allow Multiple Choices
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" id="savePollBtn" class="btn xhs-btn-primary">Save</button>
+                        </div>
+                    </div>
+            </div>
+        </div>
+        
+        <!-- Form Actions -->
+            <div class="xhs-form-actions">
+                <!-- <button type="button" id="draftBtn" class="btn xhs-btn-light me-2">Save Draft</button> -->
+                <button type="submit" id="publishBtn" class="btn xhs-btn-primary">Publish</button>
+        </div>
+    </form>
+    </div>
+</div>
+
+<style>
+    /* Xiaohongshu Create Page Styles */
+    .xhs-create-container {
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        padding: 16px;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .xhs-create-tabs {
+        display: flex;
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 12px;
+    }
+    
+    .xhs-create-tabs .tab-active {
+        color: var(--xhs-primary);
+        font-weight: 600;
+        position: relative;
+        padding: 0 12px;
+    }
+    
+    .xhs-create-tabs .tab-active:after {
+        content: '';
+        position: absolute;
+        bottom: -13px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: var(--xhs-primary);
+    }
+    
+    .xhs-input, .xhs-textarea {
+        border: none;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+        border-radius: 0;
+        font-size: 16px;
+        transition: all 0.2s;
+    }
+    
+    .xhs-input:focus, .xhs-textarea:focus {
+        outline: none;
+        box-shadow: none;
+        border-color: var(--xhs-primary);
+    }
+    
+    .xhs-textarea {
+        min-height: 120px;
+        resize: none;
+    }
+    
+    .xhs-form-text {
+        color: #999;
+        font-size: 12px;
+        text-align: right;
+        margin-top: 4px;
+    }
+    
+    .xhs-image-upload {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .xhs-upload-placeholder {
+        width: 100px;
+        height: 100px;
+        border: 1px dashed #ddd;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .xhs-upload-placeholder:hover {
+        border-color: var(--xhs-primary);
+        color: var(--xhs-primary);
+    }
+    
+    .xhs-upload-placeholder i {
+        font-size: 24px;
+        margin-bottom: 4px;
+    }
+    
+    .xhs-image-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 8px;
+        object-fit: cover;
+        position: relative;
+        display: inline-block;
+    }
+    
+    .xhs-image-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .xhs-image-preview-wrapper {
+        position: relative;
+    }
+    
+    .xhs-image-delete {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 10px;
+    }
+    
+    .xhs-feature-buttons {
+        display: flex;
+        gap: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .xhs-feature-btn {
+        background: none;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #666;
+        transition: all 0.2s;
+        padding: 6px 12px;
+        border-radius: 20px;
+    }
+    
+    .xhs-feature-btn:hover {
+        background-color: #f8f8f8;
+        color: var(--xhs-primary);
+    }
+    
+    .xhs-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 16px;
+    }
+    
+    .xhs-btn-primary {
+        background-color: var(--xhs-primary);
+        border: none;
+        color: white;
+        border-radius: 20px;
+        padding: 8px 24px;
+        font-weight: 500;
+    }
+    
+    .xhs-btn-primary:hover {
+        background-color: #e61e39;
+        color: white;
+    }
+    
+    .xhs-btn-primary:disabled {
+        background-color: #ffc5ce;
+    }
+    
+    .xhs-btn-light {
+        background-color: #f5f5f5;
+        border: none;
+        color: #666;
+        border-radius: 20px;
+        padding: 8px 24px;
+    }
+    
+    .xhs-btn-light:hover {
+        background-color: #ebebeb;
+    }
+    
+    .xhs-poll-container {
+        background-color: #f9f9f9;
+        border-radius: 12px;
+        padding: 16px;
+    }
+    
+    .xhs-poll-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    
+    .xhs-poll-header h5 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    
+    .xhs-edit-btn {
+        background: none;
+        border: none;
+        color: var(--xhs-primary);
+        font-size: 14px;
+    }
+    
+    .xhs-poll-preview {
+        color: #333;
+    }
+    
+    .xhs-poll-option {
+        background-color: white;
+        border-radius: 8px;
+        padding: 10px 16px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .modal-content {
+        border-radius: 12px;
+    }
+    
+    .modal-header {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .modal-footer {
+        border-top: none;
+    }
+</style>
+
+<script>
+// Title and content character counting
+document.getElementById('title').addEventListener('input', function() {
+    const length = this.value.length;
+    document.getElementById('title-length').textContent = length;
+    
+    // Validate form fields to enable/disable publish button
+    validateForm();
+});
+
+document.getElementById('content').addEventListener('input', function() {
+    const length = this.value.length;
+    document.getElementById('content-length').textContent = length;
+    
+    // Validate form fields to enable/disable publish button
+    validateForm();
+});
+
+// Image upload handling
+document.getElementById('uploadPlaceholder').addEventListener('click', function() {
+    document.getElementById('imageUpload').click();
+});
+
+document.getElementById('imageUpload').addEventListener('change', function(e) {
+    handleImageUpload(e.target.files);
+});
+
+function handleImageUpload(files) {
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Only process image files
+        if (!file.type.match('image.*')) {
+            continue;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (function(theFile) {
+            return function(e) {
+                // Create preview wrapper
+                const previewWrapper = document.createElement('div');
+                previewWrapper.className = 'xhs-image-preview-wrapper';
+                
+                // Create image preview
+                const img = document.createElement('img');
+                img.className = 'xhs-image-preview';
+                img.src = e.target.result;
+                img.title = theFile.name;
+                
+                // Create delete button
+                const deleteBtn = document.createElement('div');
+                deleteBtn.className = 'xhs-image-delete';
+                deleteBtn.innerHTML = '<i class="bi bi-x"></i>';
+                deleteBtn.addEventListener('click', function() {
+                    previewWrapper.remove();
+                });
+                
+                // Append elements
+                previewWrapper.appendChild(img);
+                previewWrapper.appendChild(deleteBtn);
+                previewContainer.appendChild(previewWrapper);
+            };
+        })(file);
+        
+        reader.readAsDataURL(file);
+    }
+}
+
+// Poll creation
+let pollData = null;
+const pollModal = new bootstrap.Modal(document.getElementById('pollModal'));
+
+document.getElementById('createPollBtn').addEventListener('click', function() {
+    pollModal.show();
+});
+
+document.getElementById('addOptionBtn').addEventListener('click', function() {
+    const optionsContainer = document.getElementById('pollOptionsContainer');
+    const optionCount = optionsContainer.querySelectorAll('.poll-option-input').length;
+    
+    // Limit to maximum 6 options
+    if (optionCount >= 6) {
+        alert('You can add a maximum of 6 options');
+        return;
+    }
+    
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'mb-2 poll-option-input';
+    optionDiv.innerHTML = `
+        <div class="input-group">
+            <input type="text" class="form-control poll-option" placeholder="Option ${optionCount + 1}">
+            <button class="btn btn-outline-secondary delete-option" type="button">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    `;
+    
+    optionsContainer.appendChild(optionDiv);
+    
+    // When option count reaches 6, disable the add button
+    if (optionCount + 1 >= 6) {
+        document.getElementById('addOptionBtn').disabled = true;
+    }
+    
+    // Add event listener to the new delete button
+    const deleteBtn = optionDiv.querySelector('.delete-option');
+    deleteBtn.addEventListener('click', function() {
+        optionDiv.remove();
+        
+        // Enable add button
+        document.getElementById('addOptionBtn').disabled = false;
+        
+        // Update placeholders
+        updateOptionPlaceholders();
+    });
+});
+
+function enableDeleteButtons() {
+    // Only enable delete buttons for non-default options (3rd option onwards)
+    const deleteButtons = document.querySelectorAll('.delete-option');
+    for (let i = 2; i < deleteButtons.length; i++) {
+        deleteButtons[i].disabled = false;
+    }
+}
+
+function disableDeleteButtons() {
+    document.querySelectorAll('.delete-option').forEach(btn => {
+        btn.disabled = true;
+    });
+}
+
+function updateOptionPlaceholders() {
+    document.querySelectorAll('.poll-option').forEach((input, index) => {
+        input.placeholder = `Option ${index + 1}`;
+    });
+}
+
+document.getElementById('savePollBtn').addEventListener('click', function() {
+    const question = document.getElementById('pollQuestion').value.trim();
+    if (!question) {
+        alert('Please enter a poll question');
+        return;
+    }
+    
+    const options = [];
+    document.querySelectorAll('.poll-option').forEach(input => {
+        const optionText = input.value.trim();
+        if (optionText) {
+            options.push(optionText);
+        }
+    });
+    
+    if (options.length < 2) {
+        alert('At least 2 poll options are required');
+        return;
+    }
+    
+    const allowMultiple = document.getElementById('allowMultipleVotes').checked;
+    
+    // Save poll data
+    pollData = {
+        question: question,
+        options: options,
+        allowMultiple: allowMultiple
+    };
+    
+    // Update poll preview
+    updatePollPreview();
+    
+    // Show poll container
+    document.getElementById('pollContainer').style.display = 'block';
+    
+    // Hide poll button
+    document.getElementById('createPollBtn').style.display = 'none';
+    
+    // Close modal
+    pollModal.hide();
+    
+    // Validate form
+    validateForm();
+});
+
+function updatePollPreview() {
+    const previewContainer = document.getElementById('pollPreview');
+    
+    if (!pollData) {
+        // No poll data, hide poll container, show poll button
+        document.getElementById('pollContainer').style.display = 'none';
+        document.getElementById('createPollBtn').style.display = 'block';
+        return;
+    }
+    
+    // Clear preview area
+    previewContainer.innerHTML = '';
+    
+    // Add question
+    const questionElement = document.createElement('div');
+    questionElement.className = 'fw-bold mb-2';
+    questionElement.textContent = pollData.question;
+    previewContainer.appendChild(questionElement);
+    
+    // Add options
+    pollData.options.forEach(option => {
+        const optionElement = document.createElement('div');
+        optionElement.className = 'xhs-poll-option';
+        optionElement.textContent = option;
+        previewContainer.appendChild(optionElement);
+    });
+    
+    // Multiple choice indicator
+    if (pollData.allowMultiple) {
+        const multipleElement = document.createElement('div');
+        multipleElement.className = 'small text-muted mt-2';
+        multipleElement.textContent = 'Multiple choices allowed';
+        previewContainer.appendChild(multipleElement);
+    }
+    
+    // Add delete poll button
+    const deleteRow = document.createElement('div');
+    deleteRow.className = 'd-flex justify-content-end mt-2';
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-sm btn-link text-danger';
+    deleteBtn.textContent = 'Delete Poll';
+    deleteBtn.addEventListener('click', function() {
+        // Delete poll data
+        pollData = null;
+        
+        // Update preview (will hide poll container)
+        updatePollPreview();
+        
+        // Revalidate form
+        validateForm();
+    });
+    
+    deleteRow.appendChild(deleteBtn);
+    previewContainer.appendChild(deleteRow);
+    
+    // Show poll container, hide poll button
+    document.getElementById('pollContainer').style.display = 'block';
+    document.getElementById('createPollBtn').style.display = 'none';
+}
+
+document.getElementById('editPollBtn').addEventListener('click', function() {
+    if (pollData) {
+        // Pre-fill poll modal with existing data
+        document.getElementById('pollQuestion').value = pollData.question;
+        
+        // Clear existing options
+        const optionsContainer = document.getElementById('pollOptionsContainer');
+        optionsContainer.innerHTML = '';
+        
+        // Add options
+        pollData.options.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'mb-2 poll-option-input';
+            
+            // First two options cannot be deleted, others can be
+            const isDefaultOption = index < 2;
+            
+            optionDiv.innerHTML = `
+                <div class="input-group">
+                    <input type="text" class="form-control poll-option" placeholder="Option ${index + 1}" value="${option}">
+                    <button class="btn btn-outline-secondary delete-option" type="button" ${isDefaultOption ? 'disabled' : ''}>
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `;
+            optionsContainer.appendChild(optionDiv);
+            
+            // Add event listener to the delete button (for non-default options)
+            if (!isDefaultOption) {
+                const deleteBtn = optionDiv.querySelector('.delete-option');
+                deleteBtn.addEventListener('click', function() {
+                    optionDiv.remove();
+                    
+                    // Re-enable add button
+                    document.getElementById('addOptionBtn').disabled = false;
+                    
+                    // Update placeholders
+                    updateOptionPlaceholders();
+                });
+            }
+        });
+        
+        // Set add button status
+        document.getElementById('addOptionBtn').disabled = pollData.options.length >= 6;
+        
+        // Set multiple choice checkbox
+        document.getElementById('allowMultipleVotes').checked = pollData.allowMultiple;
+        
+        // Show modal
+        pollModal.show();
+    }
+});
+
+// Form validation
+function validateForm() {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    const publishBtn = document.getElementById('publishBtn');
+    
+    // Only title and content are required, poll is optional
+    if (title.length >= 1 && title.length <= 100 && 
+        content.length >= 1 && content.length <= 5000) {
+        publishBtn.disabled = false;
+    } else {
+        publishBtn.disabled = true;
+    }
+}
+
+// Publishing action
+document.getElementById('createForm').addEventListener('submit', function(e) {
+    // Prevent default submission so we can process data
+    e.preventDefault();
+    
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    
+    // Validate required fields
+    if (title.length < 1 || title.length > 100) {
+        alert('Title must be between 2-100 characters');
+        return;
+    }
+    
+    if (content.length < 1 || content.length > 5000) {
+        alert('Content must be between 10-5000 characters');
+        return;
+    }
+    
+    try {
+        // Set poll data to hidden field
+        const pollDataField = document.getElementById('pollDataField');
+        if (pollData) {
+            console.log('Poll data details:', {
+                question: pollData.question,
+                options: pollData.options,
+                allowMultiple: pollData.allowMultiple
+            });
+            pollDataField.value = JSON.stringify(pollData);
+            console.log('Poll data set successfully, JSON string length:', pollDataField.value.length);
+        } else {
+            pollDataField.value = JSON.stringify(null);
+            console.log('No poll data, set to null');
+        }
+        
+        console.log('Form submitting, data:', {
+            title: title,
+            content: content,
+            hasPollData: pollData !== null,
+            pollDataFieldValue: pollDataField.value && pollDataField.value.substring(0, 50) + '...'
+        });
+        
+        // Submit form
+        this.submit();
+    } catch (error) {
+        console.error('Error submitting form:', error);
+        alert('Submission failed, please try again');
+    }
+});
+
+// Draft saving function
+document.getElementById('draftBtn').addEventListener('click', function() {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    
+    const draftData = {
+        title: title,
+        content: content,
+        pollData: pollData,
+        timestamp: new Date().toISOString()
+    };
+    
+    localStorage.setItem('contentDraft', JSON.stringify(draftData));
+    
+    alert('Draft saved');
+});
+
+// Load draft on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const draftJson = localStorage.getItem('contentDraft');
+    if (draftJson) {
+        try {
+            const draft = JSON.parse(draftJson);
+            
+            if (draft.title) {
+                document.getElementById('title').value = draft.title;
+                document.getElementById('title-length').textContent = draft.title.length;
+            }
+            
+            if (draft.content) {
+                document.getElementById('content').value = draft.content;
+                document.getElementById('content-length').textContent = draft.content.length;
+            }
+            
+            if (draft.pollData) {
+                pollData = draft.pollData;
+                updatePollPreview();
+            }
+            
+            validateForm();
+            
+            const loadTime = new Date(draft.timestamp || Date.now());
+            const timeString = loadTime.toLocaleString();
+            
+            const draftNotice = document.createElement('div');
+            draftNotice.className = 'alert alert-info alert-dismissible fade show';
+            draftNotice.innerHTML = `
+                <strong>Draft loaded</strong> from ${timeString}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            const container = document.querySelector('.xhs-create-container');
+            container.insertBefore(draftNotice, container.firstChild);
+        } catch (e) {
+            console.error('Error loading draft:', e);
+        }
+    }
+});
+</script>
+{% endblock %} 

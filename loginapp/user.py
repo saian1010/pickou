@@ -959,14 +959,6 @@ def create_posts():
                                     option_id = cursor.lastrowid
                                     option_ids.append(option_id)
                                     print(f"Added option '{option}', ID: {option_id}, linked to poll ID: {vote_id}")
-                            
-                            # No longer need to update vote_option_id field in votes table
-                            # if option_ids:
-                            #     cursor.execute(
-                            #         "UPDATE votes SET vote_option_id = %s WHERE vote_id = %s",
-                            #         (option_ids[0], vote_id)
-                            #     )
-                            #     print(f"Updated vote_option_id in votes table to: {option_ids[0]}")
                     else:
                         print("Poll data is empty or in incorrect format, skipping poll creation")
                 except Exception as e:
@@ -996,6 +988,10 @@ def create_posts():
                 # Store image paths for later database storage
                 image_paths = []
                 
+                # Image compression settings
+                MAX_SIZE = (1200, 1200)  # Maximum dimensions
+                QUALITY = 85  # JPEG compression quality (0-100)
+                
                 for image in images:
                     if image and allowed_file(image.filename):
                         # Safely get filename and create unique filename
@@ -1004,9 +1000,41 @@ def create_posts():
                         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                         unique_filename = f"{timestamp}_{filename}"
                         
-                        # Save image
+                        # Open the image using PIL
+                        img = Image.open(image)
+                        
+                        # Fix orientation if needed
+                        img = fix_image_orientation(img)
+                        
+                        # Compress the image
+                        # Resize if larger than MAX_SIZE while maintaining aspect ratio
+                        if img.width > MAX_SIZE[0] or img.height > MAX_SIZE[1]:
+                            img.thumbnail(MAX_SIZE, Image.LANCZOS)
+                        
+                        # Convert to RGB if RGBA (remove alpha channel)
+                        if img.mode == 'RGBA':
+                            img = img.convert('RGB')
+                        
+                        # Determine format based on original file extension
+                        original_extension = os.path.splitext(filename)[1].lower()
+                        save_format = original_extension.replace('.', '').upper()
+                        
+                        # Default to JPEG for unknown formats
+                        if save_format not in ['JPEG', 'JPG', 'PNG', 'GIF']:
+                            save_format = 'JPEG'
+                            unique_filename = f"{timestamp}_{os.path.splitext(filename)[0]}.jpg"
+                        
+                        # Save the compressed image
                         file_path = os.path.join(upload_folder, unique_filename)
-                        image.save(file_path)
+                        
+                        # Save with appropriate quality settings
+                        if save_format in ['JPEG', 'JPG']:
+                            # 把JPG统一处理为JPEG，避免格式识别问题
+                            img.save(file_path, format='JPEG', quality=QUALITY, optimize=True)
+                        elif save_format == 'PNG':
+                            img.save(file_path, format=save_format, optimize=True)
+                        else:
+                            img.save(file_path, format=save_format)
                         
                         # Add path to list
                         image_paths.append(unique_filename)
@@ -1017,7 +1045,7 @@ def create_posts():
                                 "INSERT INTO post_images (post_id, image_path, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
                                 (post_id, unique_filename)
                             )
-                            print(f"Saved image path '{unique_filename}' to database, linked to post ID: {post_id}")
+                            print(f"Saved compressed image '{unique_filename}' to database, linked to post ID: {post_id}")
                         except Exception as img_err:
                             print(f"Error saving image data: {str(img_err)}")
                             # Continue processing other images, don't break the flow
