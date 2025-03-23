@@ -39,8 +39,8 @@ app.secret_key = os.urandom(24)
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id="你的客户端ID",
-    client_secret="你的客户端密钥",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
     access_token_url='https://oauth2.googleapis.com/token',
     access_token_params=None,
     authorize_url='https://accounts.google.com/o/oauth2/auth',
@@ -53,9 +53,86 @@ google = oauth.register(
 @app.route('/callback')
 def callback():
     token = google.authorize_access_token()
-    user_info = google.get('userinfo').json()
-    session['user'] = user_info
-    return jsonify(user_info)  # 可以改成跳转到首页
+    resp = google.get('userinfo')
+    user_info = resp.json()
+    
+    # 提取Google用户信息
+    google_email = user_info.get('email')
+    google_name = user_info.get('name', '')
+    google_picture = user_info.get('picture', '')
+    
+    if not google_email:
+        flash('无法获取Google账号信息', 'danger')
+        return redirect(url_for('login'))
+    
+    # 检查该Google邮箱是否已经关联本地账号
+    with db.get_cursor() as cursor:
+        cursor.execute('SELECT user_id, username, role, status FROM users WHERE email = %s', (google_email,))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            # 如果用户存在且状态为非活跃，拒绝登录
+            if existing_user['status'] == 'inactive':
+                flash('您的账号已被禁用，请联系管理员', 'danger')
+                return redirect(url_for('login'))
+            
+            # 用户存在，直接登录
+            session['loggedin'] = True
+            session['user_id'] = existing_user['user_id']
+            session['username'] = existing_user['username']
+            session['role'] = existing_user['role']
+            flash('Google登录成功', 'success')
+        else:
+            # 用户不存在，创建新用户
+            # 从名字创建用户名（保证唯一性）
+            if google_name:
+                base_username = google_name.split()[0].lower()  # 使用名字的第一部分作为用户名基础
+            else:
+                base_username = google_email.split('@')[0]  # 使用邮箱前缀作为用户名基础
+            
+            # 确保用户名唯一
+            username = base_username
+            suffix = 1
+            while True:
+                cursor.execute('SELECT 1 FROM users WHERE username = %s', (username,))
+                if not cursor.fetchone():
+                    break
+                username = f"{base_username}{suffix}"
+                suffix += 1
+            
+            # 创建随机密码（用户之后可以更改）
+            import secrets
+            random_password = secrets.token_urlsafe(12)
+            
+            # 名字处理
+            name_parts = google_name.split()
+            first_name = name_parts[0] if name_parts else ''
+            last_name = name_parts[-1] if len(name_parts) > 1 else ''
+            
+            # 插入新用户
+            cursor.execute(
+                '''INSERT INTO users 
+                   (username, email, first_name, last_name, password_hash, role, profile_image, google_id) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+                (username, google_email, first_name, last_name, 
+                 flask_bcrypt.generate_password_hash(random_password),
+                 DEFAULT_USER_ROLE, google_picture, user_info.get('id'))
+            )
+            db.get_db().commit()
+            
+            # 获取新创建用户的ID
+            cursor.execute('SELECT user_id, username, role FROM users WHERE email = %s', (google_email,))
+            new_user = cursor.fetchone()
+            
+            # 设置会话
+            session['loggedin'] = True
+            session['user_id'] = new_user['user_id']
+            session['username'] = new_user['username']
+            session['role'] = new_user['role']
+            flash('Google账号注册成功并已登录', 'success')
+    
+    # 重定向到用户首页
+    return redirect(user_home_url())
 
 # 登录路由
 @app.route('/google_login')
