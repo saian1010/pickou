@@ -139,7 +139,7 @@
             
             <!-- 标题和内容 -->
             <h4 class="post-title mb-3" style="word-break: break-word; max-width: 100%;">{{ post.title }}</h4>
-            <div class="post-text whitespace-pre-wrap mb-4" style="word-break: break-word; max-width: 100%;">{{ post.content }}</div>
+            <div class="post-text whitespace-pre-wrap mb-4" style="word-break: break-word; max-width: 100%;" id="post-content">{{ post.content }}</div>
             
             <!-- 投票区域 (如果有投票) -->
             {% if vote_data %}
@@ -167,7 +167,7 @@
                                                 ({{ option.vote_count }} votes)
                                             </div>
                                         </div>
-                                        <div class="pk-option-bar" style="width: {{ percent if vote_data.has_voted else 0 }}%"></div>
+                                        <div class="pk-option-bar" style="width: {% if vote_data.has_voted %}{{ percent }}{% else %}0{% endif %}%"></div>
                                     </div>
                                     
                                     {% if loop.first %}
@@ -340,6 +340,22 @@
                 </div>
                 <div class="modal-body text-center">
                     <img src="" class="img-fluid" id="modalImage">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 视频播放器模态框 -->
+    <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="ratio ratio-16x9">
+                        <iframe id="videoFrame" src="" allowfullscreen></iframe>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1002,6 +1018,124 @@
                 const button = event.relatedTarget;
                 const imgSrc = button.getAttribute('data-bs-img');
                 document.getElementById('modalImage').src = imgSrc;
+            });
+        }
+        
+        // 处理帖子内容中的链接，使其可点击并弹出视频模态框
+        const postContent = document.getElementById('post-content');
+        if (postContent) {
+            // 一般URL链接的正则表达式
+            const urlRegex = /(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*))/g;
+            
+            // 将纯文本内容中的URL转换为可点击的链接
+            let contentHtml = postContent.textContent;
+            contentHtml = contentHtml.replace(urlRegex, (match) => {
+                // 检查是否是视频链接
+                if (isVideoUrl(match)) {
+                    return `<a href="${match}" class="video-link" data-video-url="${match}">${match}</a>`;
+                } else {
+                    // 普通链接，在新窗口打开
+                    return `<a href="${match}" target="_blank">${match}</a>`;
+                }
+            });
+            postContent.innerHTML = contentHtml;
+            
+            // 判断URL是否是视频链接
+            function isVideoUrl(url) {
+                const videoPatterns = [
+                    'youtube.com/watch', 'youtu.be/', 
+                    'vimeo.com/', 
+                    'bilibili.com/video/', 
+                    'v.qq.com/', 
+                    'dailymotion.com/video/',
+                    'facebook.com/watch',
+                    'twitch.tv/',
+                    'tiktok.com/',
+                    'instagram.com/reel/',
+                    'instagram.com/p/',
+                    'xigua.com/'
+                ];
+                
+                return videoPatterns.some(pattern => url.includes(pattern));
+            }
+            
+            // 添加视频链接的点击事件
+            document.querySelectorAll('.video-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const videoUrl = this.getAttribute('data-video-url');
+                    console.log('Opening video:', videoUrl);
+                    
+                    // 根据URL类型设置不同的嵌入链接
+                    let embedUrl = getEmbedUrl(videoUrl);
+                    
+                    // 设置iframe的src并打开模态框
+                    document.getElementById('videoFrame').src = embedUrl;
+                    const videoModal = new bootstrap.Modal(document.getElementById('videoModal'));
+                    videoModal.show();
+                });
+            });
+            
+            // 根据不同的视频网站生成嵌入链接
+            function getEmbedUrl(videoUrl) {
+                // YouTube
+                if (videoUrl.includes('youtube.com/watch?v=') || videoUrl.includes('youtu.be/')) {
+                    const videoId = videoUrl.includes('youtube.com/watch?v=') 
+                        ? videoUrl.split('v=')[1].split('&')[0]
+                        : videoUrl.split('youtu.be/')[1].split('?')[0];
+                    return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                }
+                // Vimeo
+                else if (videoUrl.includes('vimeo.com/')) {
+                    const videoId = videoUrl.split('vimeo.com/')[1].split('?')[0];
+                    return `https://player.vimeo.com/video/${videoId}?autoplay=1`;
+                }
+                // 哔哩哔哩
+                else if (videoUrl.includes('bilibili.com/video/')) {
+                    let videoId = videoUrl.match(/bilibili\.com\/video\/([^\/\?\s]+)/);
+                    videoId = videoId ? videoId[1] : '';
+                    return `https://player.bilibili.com/player.html?bvid=${videoId}&autoplay=1`;
+                }
+                // 腾讯视频
+                else if (videoUrl.includes('v.qq.com/')) {
+                    let videoId = '';
+                    const matchVid = videoUrl.match(/\/([a-zA-Z0-9]+)\.html/);
+                    if (matchVid) videoId = matchVid[1];
+                    return `https://v.qq.com/txp/iframe/player.html?vid=${videoId}&auto=1`;
+                }
+                // Facebook
+                else if (videoUrl.includes('facebook.com/watch')) {
+                    return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(videoUrl)}&show_text=0&autoplay=true`;
+                }
+                // Instagram
+                else if (videoUrl.includes('instagram.com/')) {
+                    return `https://www.instagram.com/p/${videoUrl.split('/p/')[1].split('/')[0]}/embed/`;
+                }
+                // TikTok
+                else if (videoUrl.includes('tiktok.com/')) {
+                    return `https://www.tiktok.com/embed/${videoUrl.split('/video/')[1].split('?')[0]}`;
+                }
+                // 西瓜视频
+                else if (videoUrl.includes('xigua.com/')) {
+                    let videoId = '';
+                    const matchVid = videoUrl.match(/\/([a-zA-Z0-9]+)/);
+                    if (matchVid) videoId = matchVid[1];
+                    return `https://www.ixigua.com/iframe/${videoId}`;
+                }
+                // 其他视频网站
+                else {
+                    // 默认尝试直接在iframe中加载
+                    return videoUrl;
+                }
+            }
+        }
+        
+        // 视频模态框关闭时，停止视频播放
+        const videoModal = document.getElementById('videoModal');
+        if (videoModal) {
+            videoModal.addEventListener('hidden.bs.modal', function () {
+                document.getElementById('videoFrame').src = '';
             });
         }
         

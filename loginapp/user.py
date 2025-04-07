@@ -1017,6 +1017,10 @@ def create_posts():
         if len(content) > 5000:
             flash('Content cannot exceed 5000 characters')
             return render_template('create.html')
+        
+        # 处理内容中的链接
+        # 这里不做转换，保持纯文本格式，在前端显示时再做处理
+        # 因为我们需要在post_detail.html中动态识别链接类型并处理
             
         try:
             cursor = db.get_db().cursor()
