@@ -16,40 +16,188 @@
     
     /* 确保Swiper容器正确垂直居中内容 */
     .swiper, .swiper-wrapper {
-        height: 500px !important;
+        height: auto !important;
+        width: 100% !important;
     }
     
     .swiper-slide {
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 100% !important;
+        background-color: white;
+        padding: 0;
     }
     
     .swiper-slide img {
-        max-height: 100%;
-        max-width: 100%;
-        object-fit: contain;
-        margin: 0 auto;
+        width: 100%;
+        height: auto;
+        max-height: 90vh;
+        object-fit: cover;
+        margin: 0;
+        padding: 0;
     }
 
     /* 设置页面背景为白色 */
     .post-detail-container {
         background-color: white !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        overflow-x: hidden;
+        width: 100% !important;
+        box-sizing: border-box;
     }
 
-    body {
-        background-color: white !important;
+    /* 用户信息区域样式 */
+    .post-user-info {
+        width: 100% !important;
+        padding: 15px 20px;
+        background-color: white;
+        position: relative;
+        z-index: 10;
+        box-sizing: border-box;
+    }
+
+    .post-card {
+        margin: 0;
+        border-radius: 0;
+        padding: 0;
+        width: 100%;
+        box-shadow: none;
+        background-color: white;
+    }
+
+    /* 图片区域样式 */
+    .post-images-wrapper {
+        width: 100%;
+        margin-bottom: 0;
+        position: relative;
+        overflow: hidden;
+        background-color: white;
+        padding: 0;
     }
     
-    /* 确保标题可以换行显示 */
-    .post-title {
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        white-space: normal;
-        line-height: 1.4;
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin-top: 1rem;
+    .post-swiper {
+        width: 100% !important;
+        height: auto !important;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* 确保内容区域有合适的边距 */
+    .post-content {
+        padding: 0;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0;
+    }
+
+    /* 标题和文字内容区域样式 */
+    .post-title, .post-text {
+        padding: 15px 20px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-left: 0;
+        margin-right: 0;
+    }
+    
+    /* 评论区样式调整 */
+    .comments-section {
+        margin: 20px 0 0 0;
+        border-radius: 0;
+        width: 100%;
+        padding: 20px;
+        box-shadow: none;
+        box-sizing: border-box;
+    }
+
+    /* 返回按钮样式 */
+    .back-link {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+        padding: 5px 15px;
+    }
+
+    /* 投票区域样式 */
+    .vote-section {
+        margin: 15px 20px !important;
+        width: calc(100% - 40px) !important;
+        box-sizing: border-box;
+        border-radius: 10px !important;
+    }
+
+    /* 覆盖bootstrap容器样式 */
+    .container {
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100% !important;
+    }
+    
+    .swiper-pagination {
+        position: absolute;
+        bottom: 10px;
+    }
+    
+    .swiper-pagination-bullet {
+        width: 8px;
+        height: 8px;
+        background: white;
+        opacity: 0.6;
+    }
+    
+    .swiper-pagination-bullet-active {
+        background: #ff2442;
+        opacity: 1;
+    }
+    
+    .swiper-button-next,
+    .swiper-button-prev {
+        color: white;
+        background: rgba(0, 0, 0, 0.3);
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        --swiper-navigation-size: 18px;
+    }
+    
+    .swiper-button-next:after,
+    .swiper-button-prev:after {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .image-counter {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        z-index: 10;
+    }
+    
+    .swiper-wrapper {
+        align-items: stretch;
+    }
+    
+    .swiper-slide {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: transform 0.3s ease;
+        height: auto;
+    }
+    
+    .swiper-lazy-preloader {
+        border-color: #ff2442;
     }
 </style>
 {% endblock %}
@@ -494,28 +642,24 @@
     /* 图片样式 */
     .post-images-wrapper {
         width: 100%;
-        margin: 0 auto 40px;
         position: relative;
         overflow: hidden;
-        border-radius: 8px;
         text-align: center;
+        padding: 0;
+        background-color: white;
     }
     
-    .single-image img {
-        width: 100%;
-        max-height: 500px;
-        object-fit: contain;
-        cursor: pointer;
-    }
-    
-    .swiper {
-        width: 100%;
-        height: 500px !important; /* 固定高度确保居中 */
+    .post-swiper {
+        width: 100% !important;
+        margin: 0;
+        height: auto; 
+        position: relative;
+        z-index: 1;
     }
     
     .swiper-slide {
-        width: 100%;
-        height: 100%;
+        width: 100% !important;
+        height: auto;
         display: flex !important;
         align-items: center;
         justify-content: center;
@@ -525,24 +669,23 @@
     }
     
     .swiper-slide img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-        border-radius: 8px;
+        width: 100%;
+        height: auto;
+        object-fit: cover;
         display: block;
-        margin: 0 auto;
+        margin: 0;
     }
     
     .swiper-slide.portrait img {
-        height: 500px;
-        width: auto;
+        height: auto;
+        width: 100%;
         max-width: 100%;
     }
     
     .swiper-slide.landscape img {
         width: 100%;
         height: auto;
-        max-height: 400px;
+        max-height: none;
     }
     
     /* 投票样式 */
@@ -895,24 +1038,24 @@
     /* 轮播图样式优化 */
     .post-images-wrapper {
         width: 100%;
-        margin: 0 auto 40px;
         position: relative;
         overflow: hidden;
-        border-radius: 8px;
         text-align: center;
+        padding: 0;
+        background-color: white;
     }
     
     .post-swiper {
-        width: 100%;
-        margin: 0 auto;
-        height: 400px; 
+        width: 100% !important;
+        margin: 0;
+        height: auto; 
         position: relative;
         z-index: 1;
     }
     
     .swiper-slide {
-        width: 100%;
-        height: 100%;
+        width: 100% !important;
+        height: auto;
         display: flex !important;
         align-items: center;
         justify-content: center;
@@ -922,12 +1065,11 @@
     }
     
     .swiper-slide img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-        border-radius: 8px;
+        width: 100%;
+        height: auto;
+        object-fit: cover;
         display: block;
-        margin: 0 auto;
+        margin: 0;
     }
     
     /* 确保内容正确显示，不会重叠 */
@@ -1007,6 +1149,25 @@
     .swiper-lazy-preloader {
         border-color: #ff2442;
     }
+
+    /* 移除post-card中所有可能的内边距 */
+    .post-card {
+        padding: 0 !important;
+    }
+
+    /* 修复post-card和post-content之间的宽度差异 */
+    @media (min-width: 768px) {
+        .post-images-wrapper, .post-content, .post-card, .post-user-info {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+    }
+
+    /* 确保用户信息区域也没有外边距 */
+    .post-user-info {
+        margin: 0;
+        padding: 15px 20px;
+    }
 </style>
 
 <script>
@@ -1043,7 +1204,7 @@
             // 判断URL是否是视频链接
             function isVideoUrl(url) {
                 const videoPatterns = [
-                    'youtube.com/watch', 'youtu.be/', 
+                    'youtube.com/watch', 'youtu.be/', 'youtube.com/shorts/',
                     'vimeo.com/', 
                     'bilibili.com/video/', 
                     'v.qq.com/', 
@@ -1079,11 +1240,16 @@
             
             // 根据不同的视频网站生成嵌入链接
             function getEmbedUrl(videoUrl) {
-                // YouTube
+                // YouTube - 支持普通视频和shorts
                 if (videoUrl.includes('youtube.com/watch?v=') || videoUrl.includes('youtu.be/')) {
                     const videoId = videoUrl.includes('youtube.com/watch?v=') 
                         ? videoUrl.split('v=')[1].split('&')[0]
                         : videoUrl.split('youtu.be/')[1].split('?')[0];
+                    return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                }
+                // YouTube Shorts
+                else if (videoUrl.includes('youtube.com/shorts/')) {
+                    const videoId = videoUrl.split('shorts/')[1].split('?')[0];
                     return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
                 }
                 // Vimeo
