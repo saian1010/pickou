@@ -1767,7 +1767,7 @@
                         
                         // 创建评论HTML
                         const commentHtml = `
-                            <div class="comment-item {% if comment.voted_option_id %}{% if comment.voted_option_id == vote_data.options[0].vote_option_id %}vote-option-1{% elif comment.voted_option_id == vote_data.options[1].vote_option_id %}vote-option-2{% endif %}{% endif %}" id="comment-${comment.comment_id}">
+                            <div class="comment-item" id="comment-${comment.comment_id}">
                                 <div class="d-flex">
                                     ${comment.profile_image 
                                         ? `<img src="/profile/image/${comment.profile_image}" class="comment-avatar" alt="${comment.username}">`
@@ -1787,23 +1787,38 @@
                                         </div>
                                     </div>
                                 </div>
-                                ${comment.voted_option_id ? `
-                                    ${comment.voted_option_id == vote_data.options[0].vote_option_id ? 
-                                        `<div class="comment-vote-tag option-1">${vote_data.options[0].title}</div>` : 
-                                        comment.voted_option_id == vote_data.options[1].vote_option_id ? 
-                                        `<div class="comment-vote-tag option-2">${vote_data.options[1].title}</div>` : 
-                                        ''}
-                                ` : ''}
                             </div>
                         `;
                         
                         // 将新评论添加到评论列表开头
                         commentsContainer.insertAdjacentHTML('afterbegin', commentHtml);
                         
-                        // 为新评论添加事件监听器
+                        // 为新评论添加样式和标签(如果有投票)
                         const newComment = document.getElementById(`comment-${comment.comment_id}`);
                         if (newComment) {
-                            const likeBtn = newComment.querySelector('.like-comment-btn');
+                            // 检查评论是否有投票记录
+                            if (comment.voted_option_id) {
+                                // 添加投票样式
+                                if (comment.voted_option_id == vote_data.options[0].vote_option_id) {
+                                    newComment.classList.add('vote-option-1');
+                                    
+                                    // 添加投票标签
+                                    const voteTag = document.createElement('div');
+                                    voteTag.className = 'comment-vote-tag option-1';
+                                    voteTag.textContent = vote_data.options[0].title;
+                                    newComment.appendChild(voteTag);
+                                } 
+                                else if (comment.voted_option_id == vote_data.options[1].vote_option_id) {
+                                    newComment.classList.add('vote-option-2');
+                                    
+                                    // 添加投票标签
+                                    const voteTag = document.createElement('div');
+                                    voteTag.className = 'comment-vote-tag option-2';
+                                    voteTag.textContent = vote_data.options[1].title;
+                                    newComment.appendChild(voteTag);
+                                }
+                            }
+                            
                             const deleteBtn = newComment.querySelector('.delete-comment-btn');
                             
                             // 添加删除按钮事件处理程序
