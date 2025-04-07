@@ -1563,7 +1563,7 @@
                 
                 // 禁用按钮，防止重复提交
                 this.disabled = true;
-                this.textContent = 'Submitting...';
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...';
                 
                 // 获取表单并构建表单数据
                 const form = document.getElementById('pkVoteForm');
@@ -1587,14 +1587,14 @@
                     } else {
                         showAlert('vote-alert', data.message, 'danger');
                         this.disabled = false;
-                        this.textContent = 'Vote';
+                        this.innerHTML = 'Vote';
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showAlert('vote-alert', 'Vote submission failed, please try again later', 'danger');
                     this.disabled = false;
-                    this.textContent = 'Vote';
+                    this.innerHTML = 'Vote';
                 });
             });
         }
@@ -1639,7 +1639,7 @@
                 
                 // 禁用按钮，防止重复提交
                 this.disabled = true;
-                this.textContent = 'Submitting...';
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...';
                 
                 fetch('/api/vote', {
                     method: 'POST',
@@ -1659,14 +1659,14 @@
                     } else {
                         showAlert('vote-alert', data.message, 'danger');
                         this.disabled = false;
-                        this.textContent = 'Vote';
+                        this.innerHTML = 'Vote';
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showAlert('vote-alert', 'Vote submission failed, please try again later', 'danger');
                     this.disabled = false;
-                    this.textContent = 'Vote';
+                    this.innerHTML = 'Vote';
                 });
             });
         }
@@ -1733,7 +1733,7 @@
                 
                 // 禁用按钮，防止重复提交
                 this.disabled = true;
-                this.textContent = 'Sending...';
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
                 
                 // 创建FormData对象
                 const formData = new FormData(commentForm);
@@ -1767,7 +1767,7 @@
                         
                         // 创建评论HTML
                         const commentHtml = `
-                            <div class="comment-item" id="comment-${comment.comment_id}">
+                            <div class="comment-item {% if comment.voted_option_id %}{% if comment.voted_option_id == vote_data.options[0].vote_option_id %}vote-option-1{% elif comment.voted_option_id == vote_data.options[1].vote_option_id %}vote-option-2{% endif %}{% endif %}" id="comment-${comment.comment_id}">
                                 <div class="d-flex">
                                     ${comment.profile_image 
                                         ? `<img src="/profile/image/${comment.profile_image}" class="comment-avatar" alt="${comment.username}">`
@@ -1787,6 +1787,13 @@
                                         </div>
                                     </div>
                                 </div>
+                                ${comment.voted_option_id ? `
+                                    ${comment.voted_option_id == vote_data.options[0].vote_option_id ? 
+                                        `<div class="comment-vote-tag option-1">${vote_data.options[0].title}</div>` : 
+                                        comment.voted_option_id == vote_data.options[1].vote_option_id ? 
+                                        `<div class="comment-vote-tag option-2">${vote_data.options[1].title}</div>` : 
+                                        ''}
+                                ` : ''}
                             </div>
                         `;
                         
@@ -1799,11 +1806,6 @@
                             const likeBtn = newComment.querySelector('.like-comment-btn');
                             const deleteBtn = newComment.querySelector('.delete-comment-btn');
                             
-                            // 如果有点赞按钮事件处理程序，在这里添加
-                            // if (likeBtn && typeof addLikeEventListener === 'function') {
-                            //     addLikeEventListener(likeBtn);
-                            // }
-                            
                             // 添加删除按钮事件处理程序
                             if (deleteBtn) {
                                 addDeleteEventListener(deleteBtn);
@@ -1815,13 +1817,13 @@
                     
                     // 重新启用按钮
                     this.disabled = false;
-                    this.textContent = 'Send';
+                    this.innerHTML = 'Send';
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showAlert('commentAlert', '评论失败，请稍后重试', 'danger');
                     this.disabled = false;
-                    this.textContent = 'Send';
+                    this.innerHTML = 'Send';
                 });
             });
             

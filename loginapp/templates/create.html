@@ -520,6 +520,11 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
         return;
     }
     
+    // 获取并禁用发布按钮
+    const publishBtn = document.getElementById('publishBtn');
+    publishBtn.disabled = true;
+    publishBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Publishing...';
+    
     try {
         // Process poll data
         const pollDataField = document.getElementById('pollDataField');
@@ -534,6 +539,9 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
         
         if (options.length < 2) {
             alert('At least 2 poll options are required');
+            // 恢复按钮状态
+            publishBtn.disabled = false;
+            publishBtn.innerHTML = 'Publish';
             return;
         }
         
@@ -561,21 +569,44 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
         // AJAX提交表单
         const xhr = new XMLHttpRequest();
         xhr.open('POST', this.action);
+        
+        // 处理请求完成
         xhr.onload = function() {
             if (xhr.status === 200) {
                 window.location.href = xhr.responseURL || '/';
             } else {
                 alert('Submission failed, please try again');
+                // 恢复按钮状态
+                publishBtn.disabled = false;
+                publishBtn.innerHTML = 'Publish';
             }
         };
+        
+        // 处理请求错误
         xhr.onerror = function() {
             alert('Network error, please try again');
+            // 恢复按钮状态
+            publishBtn.disabled = false;
+            publishBtn.innerHTML = 'Publish';
         };
+        
+        // 添加超时处理
+        xhr.timeout = 30000; // 30秒超时
+        xhr.ontimeout = function() {
+            alert('Request timed out, please try again');
+            // 恢复按钮状态
+            publishBtn.disabled = false;
+            publishBtn.innerHTML = 'Publish';
+        };
+        
         xhr.send(formData);
         
     } catch (error) {
         console.error('Error submitting form:', error);
         alert('Submission failed, please try again');
+        // 恢复按钮状态
+        publishBtn.disabled = false;
+        publishBtn.innerHTML = 'Publish';
     }
 });
 
