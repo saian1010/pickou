@@ -3,13 +3,15 @@ from loginapp import db
 from flask import flash, redirect, render_template, request, send_from_directory, session, url_for
 from flask_bcrypt import Bcrypt
 import re
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, ImageDraw, ImageFont
 import os
 import time
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import jsonify
 from authlib.integrations.flask_client import OAuth
+import random
+import json
 
 # Create upload folder constant
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -1008,7 +1010,7 @@ def create_posts():
             flash('Title must be at least 1 characters')
             return render_template('create.html')
             
-        if len(content) < 1:
+        if len(content) < 0:
             flash('Content must be at least 1 characters')
             return render_template('create.html')
             
@@ -1024,7 +1026,6 @@ def create_posts():
             
             # Process poll data
             if poll_data_str and poll_data_str != 'null':
-                import json
                 print(f"Received poll data string: {poll_data_str}")
                 
                 try:
@@ -1034,7 +1035,7 @@ def create_posts():
                         print(f"Parsed poll data: {poll_data}")
                         
                         # Create poll
-                        vote_title = poll_data.get('question', '').strip()
+                        vote_title = poll_data.get('question', 'default').strip()
                         allow_multiple = 2 if poll_data.get('allowMultiple', False) else 1
                         options = poll_data.get('options', [])
                         
@@ -1090,19 +1091,265 @@ def create_posts():
             
             # Process image uploads
             images = request.files.getlist('images[]')
-            if images and images[0].filename:
-                # Ensure upload directory exists
-                upload_folder = os.path.join(app.static_folder, 'uploads', 'posts')
-                if not os.path.exists(upload_folder):
-                    os.makedirs(upload_folder)
-                
-                # Store image paths for later database storage
-                image_paths = []
-                
-                # Image compression settings
-                MAX_SIZE = (1200, 1200)  # Maximum dimensions
-                QUALITY = 85  # JPEG compression quality (0-100)
-                
+            has_uploaded_images = images and images[0].filename
+            
+            # Ensure upload directory exists
+            upload_folder = os.path.join(app.static_folder, 'uploads', 'posts')
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+            
+            # Store image paths for later database storage
+            image_paths = []
+            
+            # Image compression settings
+            MAX_SIZE = (1200, 1200)  # Maximum dimensions
+            QUALITY = 85  # JPEG compression quality (0-100)
+            
+            # 如果用户没有上传图片，并且有投票数据，则自动生成图片
+            if not has_uploaded_images and poll_data_str and poll_data_str != 'null':
+                try:
+                    # 直接从用户提交的数据中提取投票选项
+                    poll_data = json.loads(poll_data_str)
+                    if poll_data and isinstance(poll_data, dict):
+                        options_text = poll_data.get('options', [])
+                        if options_text:
+                            print(f"直接从表单提取的选项: {options_text}")
+                            
+                            # 设置图片尺寸和背景颜色
+                            width, height = 600, 800
+                            bg_colors = [
+                                (240, 248, 255),  # 爱丽丝蓝 Alice Blue
+                                (245, 245, 245),  # 惠特烟 White Smoke
+                                (255, 240, 245),  # 薰衣草红 Lavender Blush
+                                (240, 255, 240),  # 蜜瓜 Honeydew
+                                (255, 250, 240),  # 花卉白 Floral White
+                                (240, 255, 255),  # 天蓝 Azure
+                                (250, 235, 215),  # 古董白 Antique White
+                                (245, 255, 250),  # 薄荷奶油 Mint Cream
+                                (255, 245, 238),  # 海贝壳 Seashell
+                                (248, 248, 255)   # 幽灵白 Ghost White
+                            ]
+                            bg_color = random.choice(bg_colors)
+                            
+                            # 创建图片和绘图对象
+                            img = Image.new('RGB', (width, height), color=bg_color)
+                            draw = ImageDraw.Draw(img)
+                            
+                            # 尝试加载字体，如果失败则使用默认字体
+                            try:
+                                # 尝试使用常见字体，如果不存在则使用默认
+                                font_path = None
+                                for path in [
+                                    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # Linux
+                                    '/usr/share/fonts/TTF/DejaVuSans.ttf',              # Linux
+                                    'C:/Windows/Fonts/Arial.ttf',                       # Windows
+                                    '/Library/Fonts/Arial.ttf'                          # Mac
+                                ]:
+                                    if os.path.exists(path):
+                                        font_path = path
+                                        break
+                                        
+                                # 如果找到字体，使用它；否则使用默认
+                                title_font = ImageFont.truetype(font_path, 55) if font_path else ImageFont.load_default()
+                                option_font = ImageFont.truetype(font_path, 38) if font_path else ImageFont.load_default()
+                            except Exception as font_err:
+                                print(f"加载字体出错: {str(font_err)}")
+                                # 如果加载字体失败，使用默认字体
+                                title_font = ImageFont.load_default()
+                                option_font = ImageFont.load_default()
+                            
+                            # 文本自动换行函数
+                            def wrap_text(text, font, max_width):
+                                """将文本拆分成多行，确保每行宽度不超过max_width"""
+                                # 先基于空格分词
+                                words = text.split()
+                                
+                                # 如果文本没有空格或只有一个词但可能很长
+                                if len(words) <= 1:
+                                    # 处理没有空格的长文本（如连续数字）
+                                    if not words:
+                                        return []  # 空文本返回空列表
+                                        
+                                    word = words[0] if words else text
+                                    return force_wrap_text(word, font, max_width)
+                                
+                                lines = []
+                                current_line = words[0] if words else ""
+                                
+                                for word in words[1:]:
+                                    # 如果单词特别长，先强制换行该单词
+                                    try:
+                                        word_width = draw.textlength(word, font=font)
+                                    except AttributeError:
+                                        word_width, _ = draw.textsize(word, font=font)
+                                        
+                                    # 如果单词宽度超过最大宽度，对单词进行强制换行处理
+                                    if word_width > max_width:
+                                        # 先添加当前行
+                                        if current_line:
+                                            lines.append(current_line)
+                                            
+                                        # 对超长单词进行强制换行
+                                        wrapped_word_lines = force_wrap_text(word, font, max_width)
+                                        lines.extend(wrapped_word_lines)
+                                        current_line = ""
+                                        continue
+                                    
+                                    # 尝试添加一个单词，检查是否超出宽度
+                                    test_line = current_line + " " + word if current_line else word
+                                    
+                                    # 获取文本宽度
+                                    try:
+                                        # 新版PIL
+                                        line_width = draw.textlength(test_line, font=font)
+                                    except AttributeError:
+                                        # 旧版PIL
+                                        line_width, _ = draw.textsize(test_line, font=font)
+                                        
+                                    if line_width <= max_width:
+                                        current_line = test_line
+                                    else:
+                                        lines.append(current_line)
+                                        current_line = word
+                                
+                                if current_line:
+                                    lines.append(current_line)  # 添加最后一行
+                                return lines
+                            
+                            # 强制文本换行函数 - 处理无空格的长文本
+                            def force_wrap_text(text, font, max_width):
+                                """将无空格的长文本强制换行"""
+                                lines = []
+                                current_line = ""
+                                
+                                for char in text:
+                                    test_line = current_line + char
+                                    
+                                    # 获取测试行的宽度
+                                    try:
+                                        line_width = draw.textlength(test_line, font=font)
+                                    except AttributeError:
+                                        line_width, _ = draw.textsize(test_line, font=font)
+                                    
+                                    if line_width <= max_width:
+                                        current_line = test_line
+                                    else:
+                                        lines.append(current_line)
+                                        current_line = char
+                                
+                                if current_line:
+                                    lines.append(current_line)
+                                
+                                return lines
+                                
+                            # 选项截断函数
+                            def truncate_text(text, font, max_width):
+                                """截断文本，超出指定宽度时添加省略号"""
+                                ellipsis = "..."
+                                # 如果原始文本已经在最大宽度内，直接返回
+                                try:
+                                    text_width = draw.textlength(text, font=font)
+                                except AttributeError:
+                                    text_width, _ = draw.textsize(text, font=font)
+                                    
+                                if text_width <= max_width:
+                                    return text
+                                    
+                                # 获取省略号宽度
+                                try:
+                                    ellipsis_width = draw.textlength(ellipsis, font=font)
+                                except AttributeError:
+                                    ellipsis_width, _ = draw.textsize(ellipsis, font=font)
+                                
+                                # 截断文本，保留一定的边界以添加省略号
+                                result = ""
+                                for char in text:
+                                    result += char
+                                    try:
+                                        result_width = draw.textlength(result + ellipsis, font=font)
+                                    except AttributeError:
+                                        result_width, _ = draw.textsize(result + ellipsis, font=font)
+                                        
+                                    if result_width > max_width:
+                                        # 回退一个字符，确保不超出
+                                        result = result[:-1]
+                                        break
+                                
+                                return result + ellipsis
+                            
+                            # 绘制多行文本函数
+                            def draw_multiline_text(draw, text, font, fill, max_width, x, y):
+                                """绘制自动换行的多行文本"""
+                                lines = wrap_text(text, font, max_width)
+                                line_height = font.getbbox("Ay")[3] * 1.2  # 估计行高
+                                
+                                current_y = y
+                                for line in lines:
+                                    # 计算每行的水平居中位置
+                                    try:
+                                        line_width = draw.textlength(line, font=font)
+                                    except AttributeError:
+                                        line_width, _ = draw.textsize(line, font=font)
+                                    
+                                    line_x = x + (max_width - line_width) / 2
+                                    draw.text((line_x, current_y), line, fill=fill, font=font)
+                                    current_y += line_height
+                                
+                                return current_y  # 返回绘制完成后的Y位置，用于后续内容定位
+                            
+                            # 绘制标题（自动换行）
+                            title_text = title
+                            title_margin = 60  # 标题两侧留白
+                            title_max_width = width - 2 * title_margin
+                            next_y = draw_multiline_text(draw, title_text, title_font, (0, 0, 0), 
+                                              title_max_width, title_margin, 50)
+                            
+                            # 绘制投票选项（截断长文本）
+                            option_margin = 50  # 选项两侧留白
+                            option_max_width = width - 2 * option_margin
+                            y_position = next_y + 30  # 选项起始Y位置（标题下方留空）
+                            
+                            for i, option in enumerate(options_text):
+                                # 在选项前添加序号
+                                option_text = f"{i+1}. {option}"
+                                # 截断太长的选项文本
+                                truncated_option = truncate_text(option_text, option_font, option_max_width)
+                                # 获取文本宽度
+                                try:
+                                    option_width = draw.textlength(truncated_option, font=option_font)
+                                except AttributeError:
+                                    option_width, _ = draw.textsize(truncated_option, font=option_font)
+                                    
+                                option_x = (width - option_width) / 2
+                                draw.text((option_x, y_position), truncated_option, fill=(50, 50, 50), font=option_font)
+                                y_position += option_font.getbbox("Ay")[3] * 1.5  # 选项间距为1.5倍行高
+                            
+                            # 在底部添加网站信息
+                            site_info = "My voice should be heard"
+                            site_font = option_font
+                            try:
+                                site_width = draw.textlength(site_info, font=site_font)
+                            except AttributeError:
+                                site_width, _ = draw.textsize(site_info, font=site_font)
+                                
+                            site_x = (width - site_width) / 2
+                            draw.text((site_x, height - 50), site_info, fill=(100, 100, 100), font=site_font)
+                            
+                            # 保存图片
+                            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+                            unique_filename = f"{timestamp}_generated_poll.jpg"
+                            file_path = os.path.join(upload_folder, unique_filename)
+                            img.save(file_path, format='JPEG', quality=QUALITY, optimize=True)
+                            
+                            # 添加到图片路径列表
+                            image_paths.append(unique_filename)
+                            print(f"成功生成投票图片: {unique_filename}")
+                except Exception as gen_img_err:
+                    print(f"生成投票图片出错: {str(gen_img_err)}")
+                    # 继续执行，不阻止发布
+            
+            # 处理用户上传的图片
+            if has_uploaded_images:
                 for image in images:
                     if image and allowed_file(image.filename):
                         # Safely get filename and create unique filename
@@ -1149,17 +1396,18 @@ def create_posts():
                         
                         # Add path to list
                         image_paths.append(unique_filename)
-                        
-                        # Save image info to database
-                        try:
-                            cursor.execute(
-                                "INSERT INTO post_images (post_id, image_path, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
-                                (post_id, unique_filename)
-                            )
-                            print(f"Saved compressed image '{unique_filename}' to database, linked to post ID: {post_id}")
-                        except Exception as img_err:
-                            print(f"Error saving image data: {str(img_err)}")
-                            # Continue processing other images, don't break the flow
+            
+            # 保存所有图片信息到数据库
+            for unique_filename in image_paths:
+                try:
+                    cursor.execute(
+                        "INSERT INTO post_images (post_id, image_path, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
+                        (post_id, unique_filename)
+                    )
+                    print(f"Saved image '{unique_filename}' to database, linked to post ID: {post_id}")
+                except Exception as img_err:
+                    print(f"Error saving image data: {str(img_err)}")
+                    # Continue processing other images, don't break the flow
             
             db.get_db().commit()
             cursor.close()

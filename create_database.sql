@@ -1,4 +1,3 @@
-create database pickou;
 Drop table users;
 Drop table posts;
 Drop table votes;
@@ -6,6 +5,9 @@ Drop table vote_options;
 Drop table user_votes;
 Drop table comments;
 Drop table likes;
+Drop table follows;
+Drop table post_images;
+
 
 -- users
 CREATE TABLE users (

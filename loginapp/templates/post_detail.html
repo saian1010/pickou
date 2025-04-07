@@ -40,6 +40,17 @@
     body {
         background-color: white !important;
     }
+    
+    /* 确保标题可以换行显示 */
+    .post-title {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        line-height: 1.4;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-top: 1rem;
+    }
 </style>
 {% endblock %}
 
@@ -127,13 +138,13 @@
             {% endif %}
             
             <!-- 标题和内容 -->
-            <h4 class="post-title mb-3">{{ post.title }}</h4>
-            <div class="post-text whitespace-pre-wrap mb-4">{{ post.content }}</div>
+            <h4 class="post-title mb-3" style="word-break: break-word; max-width: 100%;">{{ post.title }}</h4>
+            <div class="post-text whitespace-pre-wrap mb-4" style="word-break: break-word; max-width: 100%;">{{ post.content }}</div>
             
             <!-- 投票区域 (如果有投票) -->
             {% if vote_data %}
                 <div class="vote-section mt-4 mb-4">
-                    <h5 class="vote-title mb-3">{{ vote_data.vote.vote_title }}</h5>
+                    <!-- <h5 class="vote-title mb-3">{{ vote_data.vote.vote_title }}</h5> -->
                     <div id="vote-alert" class="alert alert-dismissible fade" role="alert" style="display: none;">
                         <span id="vote-alert-message"></span>
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -441,12 +452,23 @@
         font-weight: 600;
         color: var(--xhs-dark);
         margin-top: 15px;
+        /* 增强标题换行效果 */
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
+        max-width: 100%;
     }
     
     .post-text {
         font-size: 15px;
         line-height: 1.7;
         color: #505050;
+        /* 增强内容换行效果 */
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-width: 100%;
     }
     
     .whitespace-pre-wrap {

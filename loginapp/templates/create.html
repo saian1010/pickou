@@ -46,11 +46,10 @@
                 <textarea class="form-control xhs-textarea" 
                           id="content" 
                           name="content" 
-                      rows="5" 
-                      required
+                      rows="5"
                       minlength="1"
                           maxlength="5000"
-                          placeholder="Share your thoughts... (required)"></textarea>
+                          placeholder="Share your thoughts..."></textarea>
                 <div class="xhs-form-text">
                     <span id="content-length">0</span>/5000
                 </div>
@@ -71,19 +70,14 @@
             <!-- Poll Creation Section (Inline) -->
             <div class="form-group mb-3">
                 <div class="xhs-poll-toggle mb-2">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="enablePoll" checked>
-                        <!-- <label class="form-check-label" for="enablePoll">
-                            <span id="pollToggleText">Disable Poll</span>
-                        </label> -->
-                    </div>
+                    <h5>Polls</h5>
                 </div>
                 
                 <div id="inlinePollContainer" class="xhs-inline-poll-container">
-                    <div class="mb-3">
+                    <!-- <div class="mb-3">
                         <label for="inlinePollQuestion" class="form-label">Poll Question</label>
                         <input type="text" class="form-control" id="inlinePollQuestion" placeholder="Enter poll question">
-                    </div>
+                    </div> -->
                     
                     <div id="inlinePollOptionsContainer">
                         <div class="mb-2 poll-option-input">
@@ -260,6 +254,16 @@
         border-left: 3px solid var(--xhs-primary);
     }
     
+    .xhs-poll-toggle {
+        margin-bottom: 10px;
+    }
+    
+    .xhs-poll-toggle h5 {
+        color: var(--xhs-primary);
+        font-weight: 600;
+        margin-bottom: 0;
+    }
+    
     .xhs-poll-toggle .form-check-input:checked {
         background-color: var(--xhs-primary);
         border-color: var(--xhs-primary);
@@ -396,28 +400,6 @@ function handleImageUpload(files) {
     }
 }
 
-// Toggle poll container visibility
-document.getElementById('enablePoll').addEventListener('change', function() {
-    const pollContainer = document.getElementById('inlinePollContainer');
-    //const toggleText = document.getElementById('pollToggleText');
-    
-    if (this.checked) {
-        pollContainer.style.display = 'block';
-        //toggleText.textContent = 'Disable Poll';
-    } else {
-        pollContainer.style.display = 'none';
-        //toggleText.textContent = 'Add Poll';
-        
-        // Clear poll data when disabling
-        document.getElementById('inlinePollQuestion').value = '';
-        document.querySelectorAll('#inlinePollOptionsContainer .poll-option').forEach(input => {
-            input.value = '';
-        });
-        document.getElementById('inlineAllowMultipleVotes').checked = false;
-    }
-    validateForm();
-});
-
 // Add poll option
 document.getElementById('inlineAddOptionBtn').addEventListener('click', function() {
     const optionsContainer = document.getElementById('inlinePollOptionsContainer');
@@ -490,27 +472,21 @@ function validateForm() {
     const content = document.getElementById('content').value.trim();
     const publishBtn = document.getElementById('publishBtn');
     
-    // Validate poll data if enabled
+    // Validate poll data
     let pollValid = true;
-    const pollEnabled = document.getElementById('enablePoll').checked;
+    let validOptionCount = 0;
     
-    if (pollEnabled) {
-        const question = document.getElementById('inlinePollQuestion').value.trim();
-        let validOptionCount = 0;
-        
-        document.querySelectorAll('.poll-option').forEach(input => {
-            if (input.value.trim()) {
-                validOptionCount++;
-            }
-        });
-        
-        pollValid = question && validOptionCount >= 2;
-    }
+    document.querySelectorAll('.poll-option').forEach(input => {
+        if (input.value.trim()) {
+            validOptionCount++;
+        }
+    });
     
-    // Title and content are required, poll validation only if enabled
+    pollValid = validOptionCount >= 2;
+    
+    // Title and content are required, and at least 2 poll options
     if (title.length >= 1 && title.length <= 100 && 
-        content.length >= 1 && content.length <= 5000 &&
-        (!pollEnabled || pollValid)) {
+        content.length <= 5000 && pollValid) {
         publishBtn.disabled = false;
     } else {
         publishBtn.disabled = true;
@@ -518,7 +494,7 @@ function validateForm() {
 }
 
 // Add validation for poll inputs
-document.getElementById('inlinePollQuestion').addEventListener('input', validateForm);
+//document.getElementById('inlinePollQuestion').addEventListener('input', validateForm);
 document.addEventListener('input', function(e) {
     if (e.target.classList.contains('poll-option')) {
         validateForm();
@@ -539,48 +515,37 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
         return;
     }
     
-    if (content.length < 1 || content.length > 5000) {
-        alert('Content must be between 1-5000 characters');
+    if (content.length > 5000) {
+        alert('Content must be between 0-5000 characters');
         return;
     }
     
     try {
-        // Process poll data if enabled
-        const pollEnabled = document.getElementById('enablePoll').checked;
+        // Process poll data
         const pollDataField = document.getElementById('pollDataField');
         
-        if (pollEnabled) {
-            const question = document.getElementById('inlinePollQuestion').value.trim();
-            if (!question) {
-                alert('Please enter a poll question');
-                return;
+        const options = [];
+        document.querySelectorAll('.poll-option').forEach(input => {
+            const optionText = input.value.trim();
+            if (optionText) {
+                options.push(optionText);
             }
-            
-            const options = [];
-            document.querySelectorAll('.poll-option').forEach(input => {
-                const optionText = input.value.trim();
-                if (optionText) {
-                    options.push(optionText);
-                }
-            });
-            
-            if (options.length < 2) {
-                alert('At least 2 poll options are required');
-                return;
-            }
-            
-            const allowMultiple = document.getElementById('inlineAllowMultipleVotes').checked;
-            
-            const pollData = {
-                question: question,
-                options: options,
-                allowMultiple: allowMultiple
-            };
-            
-            pollDataField.value = JSON.stringify(pollData);
-        } else {
-            pollDataField.value = 'null';
+        });
+        
+        if (options.length < 2) {
+            alert('At least 2 poll options are required');
+            return;
         }
+        
+        const allowMultiple = document.getElementById('inlineAllowMultipleVotes').checked;
+        
+        const pollData = {
+            question: "default",
+            options: options,
+            allowMultiple: allowMultiple
+        };
+        
+        pollDataField.value = JSON.stringify(pollData);
         
         // 处理已选择的图片上传
         const formData = new FormData(this);
@@ -616,16 +581,6 @@ document.getElementById('createForm').addEventListener('submit', function(e) {
 
 // Initialize form validation on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Ensure the poll area visibility matches the checkbox state
-    const pollEnabled = document.getElementById('enablePoll').checked;
-    const pollContainer = document.getElementById('inlinePollContainer');
-    
-    if (pollEnabled) {
-        pollContainer.style.display = 'block';
-    } else {
-        pollContainer.style.display = 'none';
-    }
-    
     // Add event listeners to the delete buttons of default options
     document.querySelectorAll('.delete-option').forEach(btn => {
         btn.addEventListener('click', function() {
