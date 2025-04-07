@@ -491,13 +491,13 @@
     </div>
     
     <!-- 视频播放器模态框 -->
-    <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <div class="modal-header border-0">
+                <div class="modal-header border-0 py-1">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body text-center">
+                <div class="modal-body text-center pt-0">
                     <div class="ratio ratio-16x9">
                         <iframe id="videoFrame" src="" allowfullscreen></iframe>
                     </div>
@@ -1297,9 +1297,59 @@
         // 视频模态框关闭时，停止视频播放
         const videoModal = document.getElementById('videoModal');
         if (videoModal) {
-            videoModal.addEventListener('hidden.bs.modal', function () {
-                document.getElementById('videoFrame').src = '';
+            // 使用静态backdrop，禁止点击背景关闭
+            const videoModalInstance = new bootstrap.Modal(videoModal, {
+                backdrop: 'static',
+                keyboard: false
             });
+            
+            // 为模态框添加关闭事件处理
+            videoModal.addEventListener('hide.bs.modal', function() {
+                stopVideoPlayback();
+            });
+            
+            videoModal.addEventListener('hidden.bs.modal', function() {
+                stopVideoPlayback();
+            });
+            
+            // 关闭按钮点击事件
+            const closeBtn = videoModal.querySelector('.btn-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function() {
+                    stopVideoPlayback();
+                });
+            }
+            
+            // 停止视频播放的函数
+            function stopVideoPlayback() {
+                const videoFrame = document.getElementById('videoFrame');
+                if (videoFrame) {
+                    // 保存当前src
+                    const currentSrc = videoFrame.src;
+                    
+                    // 1. 先清空iframe的src
+                    videoFrame.src = '';
+                    
+                    // 2. 创建一个新的iframe来替换旧的
+                    if (currentSrc) {
+                        const parentElement = videoFrame.parentElement;
+                        if (parentElement) {
+                            // 删除旧的iframe
+                            videoFrame.remove();
+                            
+                            // 创建新的iframe
+                            const newIframe = document.createElement('iframe');
+                            newIframe.id = 'videoFrame';
+                            newIframe.setAttribute('allowfullscreen', '');
+                            
+                            // 将新iframe添加到DOM
+                            parentElement.appendChild(newIframe);
+                        }
+                    }
+                    
+                    console.log('Video playback stopped');
+                }
+            }
         }
         
         // 图片方向检测和处理
