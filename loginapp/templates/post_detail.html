@@ -276,9 +276,9 @@
                 </div>
                 
                 <!-- 图片数量指示器 -->
-                <div class="image-counter">
+                <!-- <div class="image-counter">
                     <span class="current-index">1</span>/<span class="total-images">{{ images|length }}</span>
-                </div>
+                </div> -->
             </div>
             {% endif %}
             
@@ -1613,16 +1613,16 @@
             }
             
             // 创建取消按钮
-            const cancelBtn = document.createElement('button');
-            cancelBtn.type = 'button';
-            cancelBtn.className = 'btn btn-outline-secondary';
-            cancelBtn.id = 'pk-cancel-btn';
-            cancelBtn.textContent = 'Cancel Vote';
-            cancelBtn.addEventListener('click', cancelPkVote);
+            //const cancelBtn = document.createElement('button');
+            //cancelBtn.type = 'button';
+            //cancelBtn.className = 'btn btn-outline-secondary';
+            //cancelBtn.id = 'pk-cancel-btn';
+            //cancelBtn.textContent = 'Cancel Vote';
+            //cancelBtn.addEventListener('click', cancelPkVote);
             
-            if (buttonsContainer) {
-                buttonsContainer.appendChild(cancelBtn);
-            }
+            //if (buttonsContainer) {
+            //    buttonsContainer.appendChild(cancelBtn);
+            //}
         }
         
         // 取消投票函数
