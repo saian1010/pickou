@@ -102,7 +102,7 @@
                         <i class="bi bi-plus"></i> Add Option
                     </button>
                     
-                    <div class="form-check mt-3">
+                    <div class="form-check mt-3" id="multipleChoicesContainer" style="display: none;">
                         <input class="form-check-input" type="checkbox" id="inlineAllowMultipleVotes">
                         <label class="form-check-label" for="inlineAllowMultipleVotes">
                             Allow Multiple Choices
@@ -427,12 +427,18 @@ document.getElementById('inlineAddOptionBtn').addEventListener('click', function
     // Enable all delete buttons if we have more than 2 options
     updateDeleteButtons();
     
+    // 检查是否需要显示"Allow Multiple Choices"选项
+    toggleMultipleChoicesVisibility();
+    
     // Add event listener to the new delete button
     const deleteBtn = optionDiv.querySelector('.delete-option');
     deleteBtn.addEventListener('click', function() {
         optionDiv.remove();
         updateOptionPlaceholders();
         updateDeleteButtons();
+        
+        // 检查是否需要隐藏"Allow Multiple Choices"选项
+        toggleMultipleChoicesVisibility();
     });
     
     // Disable the add button if max options reached
@@ -440,6 +446,21 @@ document.getElementById('inlineAddOptionBtn').addEventListener('click', function
         document.getElementById('inlineAddOptionBtn').disabled = true;
     }
 });
+
+// 控制"Allow Multiple Choices"选项的显示与隐藏
+function toggleMultipleChoicesVisibility() {
+    const optionsContainer = document.getElementById('inlinePollOptionsContainer');
+    const optionCount = optionsContainer.querySelectorAll('.poll-option-input').length;
+    const multipleChoicesContainer = document.getElementById('multipleChoicesContainer');
+    
+    if (optionCount > 2) {
+        multipleChoicesContainer.style.display = 'block';
+    } else {
+        multipleChoicesContainer.style.display = 'none';
+        // 如果选项数量小于3，自动取消选中多选框
+        document.getElementById('inlineAllowMultipleVotes').checked = false;
+    }
+}
 
 function updateDeleteButtons() {
     const optionsContainer = document.getElementById('inlinePollOptionsContainer');
@@ -620,12 +641,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 optionInput.remove();
                 updateOptionPlaceholders();
                 updateDeleteButtons();
+                // 检查是否需要隐藏"Allow Multiple Choices"选项
+                toggleMultipleChoicesVisibility();
             }
         });
     });
     
     // Initialize delete button states
     updateDeleteButtons();
+    
+    // 初始化"Allow Multiple Choices"选项的显示状态
+    toggleMultipleChoicesVisibility();
     
     validateForm();
 });

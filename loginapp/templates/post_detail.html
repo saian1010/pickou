@@ -1187,6 +1187,24 @@
             });
         }
         
+        // 常规投票结果初始化 - 确保每个结果项有data-option-id属性
+        const normalVoteForm = document.getElementById('normalVoteForm');
+        const voteResults = document.getElementById('vote-results');
+        
+        if (normalVoteForm && voteResults) {
+            const options = normalVoteForm.querySelectorAll('.vote-option');
+            const resultItems = voteResults.querySelectorAll('.vote-result-item');
+            
+            if (resultItems.length === options.length) {
+                resultItems.forEach((item, index) => {
+                    const input = options[index].querySelector('input');
+                    if (input && !item.hasAttribute('data-option-id')) {
+                        item.setAttribute('data-option-id', input.value);
+                    }
+                });
+            }
+        }
+        
         // 处理帖子内容中的链接，使其可点击并弹出视频模态框
         const postContent = document.getElementById('post-content');
         if (postContent) {
@@ -1495,7 +1513,7 @@
                 totalVoteCount.textContent = totalVotes;
             }
             
-            // 更新每个投票选项
+            // 处理PK投票结果更新
             const pkOptions = document.querySelectorAll('.pk-option');
             pkOptions.forEach(optionEl => {
                 const optionId = parseInt(optionEl.getAttribute('data-option-id'));
@@ -1527,6 +1545,34 @@
                         optionEl.classList.add('selected');
                     } else {
                         optionEl.classList.remove('selected');
+                    }
+                }
+            });
+            
+            // 处理普通投票结果更新
+            const resultItems = document.querySelectorAll('.vote-result-item');
+            resultItems.forEach(item => {
+                const optionId = parseInt(item.getAttribute('data-option-id'));
+                const option = options.find(o => o.vote_option_id === optionId);
+                
+                if (option) {
+                    // 更新百分比和投票数
+                    const percentText = item.querySelector('.vote-percent');
+                    if (percentText) {
+                        percentText.textContent = `${option.percent || 0}% (${option.vote_count || 0} votes)`;
+                    }
+                    
+                    // 更新进度条
+                    const progressBar = item.querySelector('.progress-bar');
+                    if (progressBar) {
+                        progressBar.style.width = `${option.percent || 0}%`;
+                    }
+                    
+                    // 更新选中状态
+                    if (userVotedOptions.includes(optionId)) {
+                        item.classList.add('selected');
+                    } else {
+                        item.classList.remove('selected');
                     }
                 }
             });
@@ -1813,19 +1859,38 @@
                 
                 fetch('/api/vote', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         showAlert('vote-alert', data.message, 'success');
                         
+                        // 确保结果项有data-option-id属性
+                        const resultItems = document.querySelectorAll('.vote-result-item');
+                        const options = form.querySelectorAll('.vote-option');
+                        
+                        if (resultItems.length === options.length) {
+                            resultItems.forEach((item, index) => {
+                                const input = options[index].querySelector('input');
+                                if (input && !item.hasAttribute('data-option-id')) {
+                                    item.setAttribute('data-option-id', input.value);
+                                }
+                            });
+                        }
+                        
                         // 更新投票结果UI
                         updateVoteResults(data.data);
                         
                         // 显示结果，隐藏表单
                         document.getElementById('normalVoteForm').style.display = 'none';
-                        document.getElementById('vote-results').style.display = 'block';
+                        const resultsElement = document.getElementById('vote-results');
+                        if (resultsElement) {
+                            resultsElement.style.display = 'block';
+                        }
                     } else {
                         showAlert('vote-alert', data.message, 'danger');
                         this.disabled = false;
