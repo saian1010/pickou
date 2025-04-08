@@ -1523,24 +1523,30 @@ def api_vote():
         }), 401
     
     post_id = request.form.get('post_id')
-    # Try different ways to get multiple poll data
+    vote_action = request.form.get('action', 'vote')  # 默认动作是投票，可以是'vote'或'cancel'
+    
+    # 如果动作是取消投票，调用取消投票的API
+    if vote_action == 'cancel':
+        return api_cancel_vote()
+    
+    # 尝试不同方式获取多选投票数据
     vote_options = request.form.getlist('options[]')
     if not vote_options:
-        # If the above method fails, try other possible names
+        # 如果上述方法失败，尝试其他可能的名称
         vote_options = request.form.getlist('options')
     
-    # Print form data for debugging
+    # 打印表单数据用于调试
     print("Vote form data:", request.form)
     print("Multiple options:", vote_options)
     
-    vote_option = request.form.get('option')  # Single poll vote
+    vote_option = request.form.get('option')  # 单选投票
     
     if not post_id:
         return jsonify({'success': False, 'message': 'Parameter error'}), 400
     
     try:
         with db.get_cursor() as cursor:
-            # 1. Get poll information
+            # 1. 获取投票信息
             cursor.execute('''
                 SELECT v.vote_id, v.vote_type
                 FROM posts p
@@ -1555,14 +1561,26 @@ def api_vote():
             vote_id = vote_info['vote_id']
             vote_type = vote_info['vote_type']
             
-            # 2. Clear user's previous votes (in case of re-voting)
+            # 检查用户是否已投票
             cursor.execute('''
-                DELETE FROM user_votes
+                SELECT vote_option_id 
+                FROM user_votes 
                 WHERE user_id = %s AND vote_id = %s
             ''', (session['user_id'], vote_id))
+            existing_votes = cursor.fetchall()
             
-            # 3. Save new votes
-            if vote_type == 2:  # Multiple choice
+            has_voted = len(existing_votes) > 0
+            old_vote_options = [vote['vote_option_id'] for vote in existing_votes] if has_voted else []
+            
+            # 2. 清除用户先前的投票（如果重新投票）
+            if has_voted:
+                cursor.execute('''
+                    DELETE FROM user_votes
+                    WHERE user_id = %s AND vote_id = %s
+                ''', (session['user_id'], vote_id))
+            
+            # 3. 保存新投票
+            if vote_type == 2:  # 多选
                 if not vote_options:
                     return jsonify({'success': False, 'message': 'Please select at least one option'}), 400
                 
@@ -1571,7 +1589,7 @@ def api_vote():
                         INSERT INTO user_votes (user_id, post_id, vote_id, vote_option_id, created_at, updated_at)
                         VALUES (%s, %s, %s, %s, NOW(), NOW())
                     ''', (session['user_id'], post_id, vote_id, option_id))
-            else:  # Single choice
+            else:  # 单选
                 if not vote_option:
                     return jsonify({'success': False, 'message': 'Please select an option'}), 400
                 
@@ -1582,7 +1600,10 @@ def api_vote():
             
             db.get_db().commit()
             
-            # 4. Get latest poll results
+            # 根据是新投票还是更改投票自定义消息
+            message = 'Vote changed' if has_voted else 'Vote successful'
+            
+            # 4. 获取最新投票结果
             cursor.execute('''
                 SELECT vo.vote_option_id, vo.title,
                       (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_option_id = vo.vote_option_id) as vote_count
@@ -1592,10 +1613,10 @@ def api_vote():
             ''', (vote_id,))
             options = cursor.fetchall()
             
-            # Calculate total votes
+            # 计算总票数
             total_votes = sum(option['vote_count'] for option in options)
             
-            # Get user's vote options
+            # 获取用户投票选项
             cursor.execute('''
                 SELECT vote_option_id
                 FROM user_votes
@@ -1604,23 +1625,111 @@ def api_vote():
             user_votes = cursor.fetchall()
             user_voted_options = [vote['vote_option_id'] for vote in user_votes]
             
-            # Calculate percentage for each option
+            # 为每个选项计算百分比
             for option in options:
                 option['percent'] = int((option['vote_count'] / total_votes * 100) if total_votes > 0 else 0)
             
             return jsonify({
                 'success': True,
-                'message': 'Vote successful',
+                'message': message,
                 'data': {
                     'options': options,
                     'total_votes': total_votes,
-                    'user_voted_options': user_voted_options
+                    'user_voted_options': user_voted_options,
+                    'changed_vote': has_voted,
+                    'previous_votes': old_vote_options
                 }
             })
             
     except Exception as e:
         print(f"Vote failed: {str(e)}")
         return jsonify({'success': False, 'message': 'Vote failed, please try again later'}), 500
+
+# 取消投票API
+@app.route('/api/vote/cancel', methods=['POST'])
+def api_cancel_vote():
+    """API endpoint for canceling a vote, returns JSON data"""
+    if 'loggedin' not in session:
+        return jsonify({
+            'success': False,
+            'message': 'Please log in first',
+            'redirect': url_for('login')
+        }), 401
+    
+    post_id = request.form.get('post_id')
+    
+    if not post_id:
+        return jsonify({'success': False, 'message': 'Parameter error'}), 400
+    
+    try:
+        with db.get_cursor() as cursor:
+            # 1. 获取投票信息
+            cursor.execute('''
+                SELECT v.vote_id
+                FROM posts p
+                JOIN votes v ON p.vote_id = v.vote_id
+                WHERE p.post_id = %s
+            ''', (post_id,))
+            vote_info = cursor.fetchone()
+            
+            if not vote_info:
+                return jsonify({'success': False, 'message': 'Poll does not exist'}), 404
+            
+            vote_id = vote_info['vote_id']
+            
+            # 2. 检查用户是否已投票
+            cursor.execute('''
+                SELECT vote_option_id
+                FROM user_votes
+                WHERE user_id = %s AND vote_id = %s
+            ''', (session['user_id'], vote_id))
+            existing_votes = cursor.fetchall()
+            
+            if not existing_votes:
+                return jsonify({'success': False, 'message': 'No vote to cancel'}), 400
+            
+            old_vote_options = [vote['vote_option_id'] for vote in existing_votes]
+            
+            # 3. 删除用户投票
+            cursor.execute('''
+                DELETE FROM user_votes
+                WHERE user_id = %s AND vote_id = %s
+            ''', (session['user_id'], vote_id))
+            
+            db.get_db().commit()
+            
+            # 4. 获取最新投票结果
+            cursor.execute('''
+                SELECT vo.vote_option_id, vo.title,
+                      (SELECT COUNT(*) FROM user_votes uv WHERE uv.vote_option_id = vo.vote_option_id) as vote_count
+                FROM vote_options vo
+                WHERE vo.vote_id = %s
+                ORDER BY vo.created_at
+            ''', (vote_id,))
+            options = cursor.fetchall()
+            
+            # 计算总票数
+            total_votes = sum(option['vote_count'] for option in options)
+            
+            # 为每个选项计算百分比
+            for option in options:
+                option['percent'] = int((option['vote_count'] / total_votes * 100) if total_votes > 0 else 0)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Vote canceled',
+                'data': {
+                    'options': options,
+                    'total_votes': total_votes,
+                    'user_voted_options': [],
+                    'canceled': True,
+                    'previous_votes': old_vote_options
+                }
+            })
+            
+    except Exception as e:
+        print(f"Cancel vote failed: {str(e)}")
+        return jsonify({'success': False, 'message': 'Cancel vote failed, please try again later'}), 500
 
 # Add comment API
 @app.route('/api/comments', methods=['POST'])
@@ -2098,3 +2207,172 @@ def unlike_post(post_id):
             'message': 'Post unliked successfully.',
             'likes': like_count
         })
+
+@app.route('/api/vote', methods=['POST'])
+def vote_api():
+    """投票 API"""
+    # 检查用户是否登录
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': 'Please login to vote'})
+
+    # 获取表单数据
+    post_id = request.form.get('post_id')
+    option_id = request.form.get('option')
+    action = request.form.get('action', 'vote')  # 默认动作是投票
+    
+    # 检查参数是否存在
+    if not post_id:
+        return jsonify({'success': False, 'message': 'Missing post ID'})
+    
+    # 根据帖子 ID 查询帖子信息
+    post = db.session.query(Post).filter(Post.post_id == post_id).first()
+    if not post:
+        return jsonify({'success': False, 'message': 'Post not found'})
+    
+    # 获取当前用户
+    username = session.get('username')
+    user = db.session.query(User).filter(User.username == username).first()
+    
+    # 如果是取消投票
+    if action == 'cancel':
+        # 查找用户的投票记录
+        existing_vote = db.session.query(Vote).filter(
+            Vote.user_id == user.id,
+            Vote.post_id == post.id
+        ).first()
+        
+        # 确认用户投过票
+        if not existing_vote:
+            return jsonify({'success': False, 'message': 'You have not voted on this poll'})
+        
+        # 保存先前的投票信息
+        previous_votes = [existing_vote.option_id]
+        
+        # 删除用户的投票
+        db.session.delete(existing_vote)
+        db.session.commit()
+        
+        # 获取最新的投票结果
+        vote_data = get_vote_data(post, user)
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Your vote has been canceled',
+            'data': vote_data,
+            'previous_votes': previous_votes,
+            'changed_vote': False,
+            'canceled_vote': True
+        })
+    
+    # 否则是正常投票流程
+    if not option_id and action == 'vote':
+        return jsonify({'success': False, 'message': 'Please select an option'})
+    
+    try:
+        # 获取投票选项
+        option = db.session.query(VoteOption).filter(VoteOption.id == option_id).first()
+        if not option:
+            return jsonify({'success': False, 'message': 'Invalid option'})
+        
+        # 检查选项是否属于这个帖子
+        if option.post_id != post.id:
+            return jsonify({'success': False, 'message': 'Option does not belong to this post'})
+        
+        # 检查是否已经投过票
+        existing_vote = db.session.query(Vote).filter(
+            Vote.user_id == user.id,
+            Vote.post_id == post.id
+        ).first()
+        
+        previous_votes = []
+        # 如果用户已经投过票
+        if existing_vote:
+            # 记录先前的投票
+            previous_votes = [existing_vote.option_id]
+            # 清除先前的投票
+            db.session.delete(existing_vote)
+            db.session.commit()
+        
+        # 创建新投票
+        vote = Vote(
+            user_id=user.id,
+            post_id=post.id,
+            option_id=option.id
+        )
+        db.session.add(vote)
+        db.session.commit()
+        
+        # 确定消息内容
+        message = 'Vote submitted successfully'
+        if previous_votes:
+            message = 'Your vote has been changed successfully'
+        
+        # 获取最新的投票结果
+        vote_data = get_vote_data(post, user)
+        
+        # 返回成功响应
+        return jsonify({
+            'success': True, 
+            'message': message,
+            'changed_vote': len(previous_votes) > 0,
+            'previous_votes': previous_votes,
+            'data': vote_data
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"投票失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'Vote failed: {str(e)}'})
+
+@app.route('/api/vote/cancel', methods=['POST'])
+def cancel_vote_api():
+    """取消投票 API"""
+    # 检查用户是否登录
+    if 'username' not in session:
+        return jsonify({'success': False, 'message': 'Please login to cancel your vote'})
+
+    # 获取表单数据
+    post_id = request.form.get('post_id')
+    
+    # 检查参数是否存在
+    if not post_id:
+        return jsonify({'success': False, 'message': 'Missing post ID'})
+    
+    # 根据帖子 ID 查询帖子信息
+    post = db.session.query(Post).filter(Post.post_id == post_id).first()
+    if not post:
+        return jsonify({'success': False, 'message': 'Post not found'})
+    
+    # 获取当前用户
+    username = session.get('username')
+    user = db.session.query(User).filter(User.username == username).first()
+    
+    try:
+        # 查找用户的投票记录
+        existing_vote = db.session.query(Vote).filter(
+            Vote.user_id == user.id,
+            Vote.post_id == post.id
+        ).first()
+        
+        # 确认用户投过票
+        if not existing_vote:
+            return jsonify({'success': False, 'message': 'You have not voted on this poll'})
+        
+        # 删除用户的投票
+        db.session.delete(existing_vote)
+        db.session.commit()
+        
+        # 获取最新的投票结果
+        vote_data = get_vote_data(post, user)
+        
+        # 返回成功响应
+        return jsonify({
+            'success': True, 
+            'message': 'Your vote has been canceled',
+            'data': vote_data
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"取消投票失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'Cancel vote failed: {str(e)}'})
