@@ -1741,17 +1741,29 @@
                     } 
                     // 如果用户点击未选择的选项（无论之前是否投票）
                     else {
-                        // 移除之前的选中效果
-                        pkOptions.forEach(opt => opt.classList.remove('selected-by-user'));
-                        
-                        // 高亮当前选项
-                        this.classList.add('selected-by-user');
-                        
-                        // 设置选中的选项ID
-                        selectedPkOption = optionId;
-                        
-                        // 显示投票按钮
-                        createVoteButton();
+                        // 如果当前选项已经被选中（用于处理未投票情况下的取消选中）
+                        if (this.classList.contains('selected-by-user')) {
+                            // 取消选中状态
+                            this.classList.remove('selected-by-user');
+                            selectedPkOption = null;
+                            
+                            // 移除投票按钮
+                            while (buttonsContainer && buttonsContainer.firstChild) {
+                                buttonsContainer.removeChild(buttonsContainer.firstChild);
+                            }
+                        } else {
+                            // 移除之前的选中效果
+                            pkOptions.forEach(opt => opt.classList.remove('selected-by-user'));
+                            
+                            // 高亮当前选项
+                            this.classList.add('selected-by-user');
+                            
+                            // 设置选中的选项ID
+                            selectedPkOption = optionId;
+                            
+                            // 显示投票按钮
+                            createVoteButton();
+                        }
                     }
                 });
             });
